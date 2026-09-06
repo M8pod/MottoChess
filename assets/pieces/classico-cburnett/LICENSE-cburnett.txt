@@ -1,0 +1,11 @@
+Set pezzi "Cburnett"
+Fonte: https://github.com/lichess-org/lila/tree/master/public/piece/cburnett
+Autore: Colin M.L. Burnett
+Licenza: GPL v2+ (compatibile con GPL-3.0 del repository Motto Chess)
+
+Scaricato il 2026-09-06 direttamente dal repository pubblico di Lichess.
+File: wP wN wB wR wQ wK bP bN bB bR bQ bK (12 SVG, w=bianco, b=nero,
+P=pedone N=cavallo B=alfiere R=torre Q=dama K=re).
+
+Ringraziamento a Lichess incluso nella sezione Informazioni dell'app,
+come da specifiche.

@@ -1,0 +1,19 @@
+{
+  "name": "Motto Chess",
+  "short_name": "Motto Chess",
+  "description": "Scacchi accessibili per persone vedenti e non vedenti, con supporto VoiceOver.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#121212",
+  "theme_color": "#0F5C3F",
+  "lang": "it",
+  "icons": [
+    { "src": "assets/images/icon-192-any.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/images/icon-192-rounded.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/images/icon-512-any.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/images/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "assets/images/motto_chess_pawn_samurai_square.png", "sizes": "800x800", "type": "image/png", "purpose": "maskable" }
+  ]
+}
