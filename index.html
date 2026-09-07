@@ -14,5 +14,24 @@
   <div id="app-main"></div>
   <div id="narrator-live" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
   <script type="module" src="src/main.js"></script>
+  <script>
+    // Rete di sicurezza: se il modulo principale non parte (es. errore di
+    // sintassi), la pagina resta vuota e completamente muta per lo screen
+    // reader. Meglio un messaggio annunciabile che una schermata morta.
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        var main = document.getElementById('app-main');
+        if (main && main.childElementCount === 0) {
+          var h1 = document.createElement('h1');
+          h1.textContent = 'Motto Chess';
+          var p = document.createElement('p');
+          p.setAttribute('role', 'alert');
+          p.textContent =
+            "Errore di avvio: l'applicazione non si è caricata correttamente. Chiudi e riapri l'app per scaricare l'ultima versione.";
+          main.append(h1, p);
+        }
+      }, 3000);
+    });
+  </script>
 </body>
 </html>

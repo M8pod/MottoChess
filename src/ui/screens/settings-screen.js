@@ -15,7 +15,7 @@ function fieldRow(labelText, inputEl) {
 export function renderSettingsScreen(container, ctx) {
   const { sound, navigate, saveSettings } = ctx;
   let settings = structuredClone(ctx.settings);
-  const preview = new AmbientPlayer();
+  const ambientPreview = new AmbientPlayer();
 
   function persist() {
     saveSettings(structuredClone(settings));
@@ -112,7 +112,7 @@ export function renderSettingsScreen(container, ctx) {
       settings[key] = Number(input.value);
       persist();
       // Se si sta ascoltando un'anteprima, il volume cambia mentre si trascina.
-      if (key === 'volumeAmbient') preview.setVolume(settings.volumeAmbient);
+      if (key === 'volumeAmbient') ambientPreview.setVolume(settings.volumeAmbient);
     });
     audioFs.appendChild(fieldRow(text, input));
   });
@@ -150,10 +150,10 @@ export function renderSettingsScreen(container, ctx) {
 
   function togglePreview(key) {
     if (previewKey === key) {
-      preview.stop();
+      ambientPreview.stop();
       previewKey = null;
     } else {
-      preview.play(key, settings.volumeAmbient);
+      ambientPreview.play(key, settings.volumeAmbient);
       previewKey = key;
     }
     updatePreviewButtons();
@@ -308,7 +308,7 @@ export function renderSettingsScreen(container, ctx) {
 
   return {
     destroy() {
-      preview.stop();
+      ambientPreview.stop();
     },
   };
 }
