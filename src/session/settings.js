@@ -17,6 +17,13 @@ export const DARK_SQUARE_COLORS = {
   blu: '#2F4A8C',
 };
 
+// Tracce musicali di sottofondo (loop continuo durante la partita), canale
+// volume indipendente da suoni di gioco/UI. 'nessuna' = musica disattivata.
+export const AMBIENT_TRACKS = {
+  nessuna: { label: 'Nessuna', file: null },
+  newage: { label: 'New age (rilassante)', file: 'newage_loop_v1.mp3' },
+};
+
 export const DEFAULT_SETTINGS = {
   themeSoundsEnabled: true,
   narrationStyle: 'compatto', // 'compatto' | 'espanso'
@@ -25,6 +32,8 @@ export const DEFAULT_SETTINGS = {
   timeElapsedEvery10MinEnabled: true,
   volumeGame: 1,
   volumeUi: 0.8,
+  volumeAmbient: 0.5,
+  ambientTrack: 'nessuna', // default: musica di sottofondo disattivata
   lightSquareColorName: 'verde salvia',
   darkSquareColorName: 'viola',
   language: 'it',

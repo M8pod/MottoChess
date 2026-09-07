@@ -1,5 +1,6 @@
 import { loadLastConfig, saveLastConfig } from '../../session/options.js';
 import { eloForLevel } from '../../engine/engine.js';
+import { AMBIENT_TRACKS } from '../../session/settings.js';
 
 const MINUTE_OPTIONS = [10, 15, 20, 30, 45, 60, 90, 120];
 const INCREMENT_OPTIONS = [0, 2, 3, 5, 7, 10, 15, 20, 30];
@@ -158,6 +159,27 @@ export function renderOptionsScreen(container, ctx) {
   });
   form.appendChild(setFieldset);
 
+  // Musica di sottofondo (per questa partita)
+  const ambientDiv = document.createElement('div');
+  ambientDiv.className = 'field';
+  const ambientLabel = document.createElement('label');
+  ambientLabel.textContent = 'Musica di sottofondo per questa partita';
+  const ambientSelect = document.createElement('select');
+  const defaultOpt = document.createElement('option');
+  defaultOpt.value = 'predefinita';
+  defaultOpt.textContent = 'Come da Impostazioni';
+  ambientSelect.appendChild(defaultOpt);
+  Object.entries(AMBIENT_TRACKS).forEach(([key, track]) => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = track.label;
+    ambientSelect.appendChild(opt);
+  });
+  ambientSelect.value = config.ambientTrack || 'predefinita';
+  ambientLabel.appendChild(ambientSelect);
+  ambientDiv.appendChild(ambientLabel);
+  form.appendChild(ambientDiv);
+
   const submitBtn = document.createElement('button');
   submitBtn.type = 'submit';
   submitBtn.className = 'big-button';
@@ -173,6 +195,7 @@ export function renderOptionsScreen(container, ctx) {
       incrementSec: Number(incrementSelect.value),
       level: Number(levelSelect.value),
       pieceSet: 'classico',
+      ambientTrack: ambientSelect.value,
     };
     saveLastConfig(newConfig);
     sound.playUi('navigation');

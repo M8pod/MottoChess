@@ -1,18 +1,23 @@
 import { GameCore } from '../../game-core/game-core.js';
 import { Engine } from '../../engine/engine.js';
-import { parseMoveText } from '../../io-text/io-text.js';
+import { parseMoveText, parseCommandText } from '../../io-text/io-text.js';
 import {
   moveToCompactText,
   moveToExpandedText,
   promotionConfirmationText,
   formatDurationItalian,
+  describeSquareForListing,
+  CITY_BY_FILE,
 } from '../../themes/i18n-voice.js';
 import { LIGHT_SQUARE_COLORS, DARK_SQUARE_COLORS } from '../../session/settings.js';
 import { pieceFillFromSquareColor } from '../color-utils.js';
 import { BoardView } from '../board.js';
 import { ChessClock } from '../clock.js';
-import { askPromotionChoice, askResignConfirmation } from '../modal.js';
+import { askPromotionChoice, askResignConfirmation, showHelpDialog } from '../modal.js';
 import { applyPgnMetadata, saveGame } from '../../pgn/pgn.js';
+import { AmbientPlayer } from '../ambient-player.js';
+
+const FILES_ORDER = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
 function formatClock(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
@@ -50,8 +55,8 @@ export function renderGameScreen(container, ctx, session) {
   const textInput = document.createElement('input');
   textInput.type = 'text';
   textInput.autocomplete = 'off';
-  textInput.setAttribute('aria-label', 'Comando mossa testuale');
-  textInput.placeholder = 'es. e4, Empoli 4, Nf3...';
+  textInput.setAttribute('aria-label', 'Comando mossa testuale o comando informativo (aiuto per l\'elenco)');
+  textInput.placeholder = 'es. e4, Empoli 4, aiuto...';
   const submitBtn = document.createElement('button');
   submitBtn.type = 'submit';
   submitBtn.textContent = 'Invia';
@@ -63,7 +68,11 @@ export function renderGameScreen(container, ctx, session) {
   const resignBtn = document.createElement('button');
   resignBtn.type = 'button';
   resignBtn.textContent = 'Resign';
-  functionBox.appendChild(resignBtn);
+  const helpBtn = document.createElement('button');
+  helpBtn.type = 'button';
+  helpBtn.textContent = 'Aiuto';
+  helpBtn.addEventListener('click', () => showHelpDialog());
+  functionBox.append(resignBtn, helpBtn);
   container.appendChild(functionBox);
 
   const postGamePanel = document.createElement('div');
@@ -79,6 +88,11 @@ export function renderGameScreen(container, ctx, session) {
   let engine = null;
 
   const boardView = new BoardView(boardContainer, { onSquareClick });
+  const ambient = new AmbientPlayer();
+  const ambientTrackKey =
+    !session.ambientTrack || session.ambientTrack === 'predefinita'
+      ? settings.ambientTrack
+      : session.ambientTrack;
 
   function currentColors() {
     const lightHex = LIGHT_SQUARE_COLORS[settings.lightSquareColorName];
@@ -106,9 +120,12 @@ export function renderGameScreen(container, ctx, session) {
     });
   }
 
-  function setInputEnabled(enabled) {
-    textInput.disabled = !enabled;
-    submitBtn.disabled = !enabled;
+  // Il campo testo resta sempre abilitato: i comandi informativi (l, c,
+  // s+numero/lettera, aiuto) devono funzionare anche fuori dal proprio turno
+  // e a partita finita. Solo l'invio di una mossa vera è vincolato al turno
+  // (vedi handler 'submit').
+  function focusInput() {
+    textInput.focus();
   }
 
   function updateClockDisplay(remaining) {
@@ -171,7 +188,7 @@ export function renderGameScreen(container, ctx, session) {
     if (gameOver) return;
     gameOver = true;
     if (clock) clock.stop();
-    setInputEnabled(false);
+    ambient.stop();
 
     let soundKey;
     let text;
@@ -276,13 +293,11 @@ export function renderGameScreen(container, ctx, session) {
     if (gameCore.turn !== session.color) {
       await triggerEngineMove();
     } else {
-      setInputEnabled(true);
-      textInput.focus();
+      focusInput();
     }
   }
 
   async function triggerEngineMove() {
-    setInputEnabled(false);
     engine.setPositionFen(gameCore.fen);
     const goOpts = clock
       ? {
@@ -347,11 +362,110 @@ export function renderGameScreen(container, ctx, session) {
     await renderBoardAndControls();
   }
 
+  // Descrive una mossa della cronologia per i comandi 'l'/'l+numero',
+  // includendo numero di mossa e colore (a differenza dell'annuncio "a caldo"
+  // di una mossa appena giocata, qui serve contesto perché può essere letta
+  // in un momento qualsiasi).
+  function describeHistoryMove(move, index) {
+    const moveNumber = Math.floor(index / 2) + 1;
+    const sideLabel = move.color === 'w' ? 'bianco' : 'nero';
+    const isCheckmate = move.san.endsWith('#');
+    const isCheck = isCheckmate || move.san.endsWith('+');
+    const text =
+      settings.narrationStyle === 'compatto'
+        ? moveToCompactText(move)
+        : moveToExpandedText(move, { isCheck, isCheckmate });
+    return `Mossa ${moveNumber}, ${sideLabel}: ${text}`;
+  }
+
+  function announceLastMoves(requestedCount) {
+    const history = gameCore.history({ verbose: true });
+    if (history.length === 0) {
+      narrator.announce('Nessuna mossa giocata finora.');
+      return;
+    }
+    const count = Math.max(1, Math.min(requestedCount, history.length));
+    const startIdx = history.length - count;
+    const parts = history.slice(startIdx).map((move, i) => describeHistoryMove(move, startIdx + i));
+    const prefix = count === 1 ? 'Ultima mossa.' : `Ultime ${count} mosse.`;
+    narrator.announce(`${prefix} ${parts.join('. ')}.`);
+  }
+
+  function announceClock() {
+    if (!session.timeEnabled || !clock) {
+      narrator.announce('Questa partita non ha il tempo attivato.');
+      return;
+    }
+    const oppColor = session.color === 'w' ? 'b' : 'w';
+    const yours = formatDurationItalian(clock.remaining[session.color]);
+    const opp = formatDurationItalian(clock.remaining[oppColor]);
+    narrator.announce(`Tempo residuo: tu hai ${yours}, l'avversario ha ${opp}.`);
+  }
+
+  function announceRank(rank) {
+    const parts = FILES_ORDER.map((file) => {
+      const square = `${file}${rank}`;
+      return describeSquareForListing(square, gameCore.pieceAt(square));
+    });
+    narrator.announce(`Traversa ${rank}: ${parts.join(', ')}.`);
+  }
+
+  function announceFile(file) {
+    const parts = [1, 2, 3, 4, 5, 6, 7, 8].map((rank) => {
+      const square = `${file}${rank}`;
+      return describeSquareForListing(square, gameCore.pieceAt(square));
+    });
+    narrator.announce(`Colonna ${CITY_BY_FILE[file]}: ${parts.join(', ')}.`);
+  }
+
+  function handleCommand(command) {
+    switch (command.type) {
+      case 'help':
+        showHelpDialog();
+        break;
+      case 'clock':
+        announceClock();
+        break;
+      case 'lastMove':
+        announceLastMoves(1);
+        break;
+      case 'lastMoves':
+        announceLastMoves(command.count);
+        break;
+      case 'rank':
+        announceRank(command.rank);
+        break;
+      case 'file':
+        announceFile(command.file);
+        break;
+      default:
+        break;
+    }
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (gameOver || gameCore.turn !== session.color) return;
     const raw = textInput.value;
     textInput.value = '';
+    if (!raw.trim()) return;
+
+    // I comandi informativi funzionano sempre: fuori dal proprio turno e
+    // anche a partita finita (utile per rivedere l'ultima mossa/i tempi).
+    const command = parseCommandText(raw);
+    if (command) {
+      handleCommand(command);
+      return;
+    }
+
+    if (gameOver) {
+      narrator.announce('La partita è terminata.');
+      return;
+    }
+    if (gameCore.turn !== session.color) {
+      narrator.announce('Non è il tuo turno.');
+      return;
+    }
+
     const legalMoves = gameCore.allLegalMoves();
     const result = parseMoveText(raw, legalMoves);
     if (!result.ok) {
@@ -371,6 +485,7 @@ export function renderGameScreen(container, ctx, session) {
 
   async function start() {
     sound.playGame('session_start');
+    ambient.play(ambientTrackKey, settings.volumeAmbient);
     engine = new Engine();
     await engine.init();
     engine.setLevel(session.level);
@@ -388,8 +503,7 @@ export function renderGameScreen(container, ctx, session) {
     if (gameCore.turn !== session.color) {
       await triggerEngineMove();
     } else {
-      setInputEnabled(true);
-      textInput.focus();
+      focusInput();
     }
   }
 
@@ -398,6 +512,7 @@ export function renderGameScreen(container, ctx, session) {
   return {
     destroy() {
       if (clock) clock.stop();
+      ambient.stop();
       if (engine) engine.destroy();
     },
   };

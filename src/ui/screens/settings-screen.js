@@ -1,4 +1,4 @@
-import { LIGHT_SQUARE_COLORS, DARK_SQUARE_COLORS } from '../../session/settings.js';
+import { LIGHT_SQUARE_COLORS, DARK_SQUARE_COLORS, AMBIENT_TRACKS } from '../../session/settings.js';
 import { contrastRatio, pieceFillFromSquareColor } from '../color-utils.js';
 
 function fieldRow(labelText, inputEl) {
@@ -98,6 +98,7 @@ export function renderSettingsScreen(container, ctx) {
   [
     ['volumeGame', 'Volume suoni di gioco'],
     ['volumeUi', 'Volume suoni UI/menu'],
+    ['volumeAmbient', 'Volume musica di sottofondo'],
   ].forEach(([key, text]) => {
     const input = document.createElement('input');
     input.type = 'range';
@@ -112,6 +113,24 @@ export function renderSettingsScreen(container, ctx) {
     audioFs.appendChild(fieldRow(text, input));
   });
   container.appendChild(audioFs);
+
+  // --- Musica di sottofondo ---
+  const ambientFs = document.createElement('fieldset');
+  ambientFs.innerHTML = '<legend>Musica di sottofondo</legend>';
+  const ambientSelect = document.createElement('select');
+  Object.entries(AMBIENT_TRACKS).forEach(([key, track]) => {
+    const opt = document.createElement('option');
+    opt.value = key;
+    opt.textContent = track.label;
+    if (key === settings.ambientTrack) opt.selected = true;
+    ambientSelect.appendChild(opt);
+  });
+  ambientSelect.addEventListener('change', () => {
+    settings.ambientTrack = ambientSelect.value;
+    persist();
+  });
+  ambientFs.appendChild(fieldRow('Traccia predefinita (riprodotta in loop durante la partita)', ambientSelect));
+  container.appendChild(ambientFs);
 
   // --- Grafica scacchiera ---
   const boardFs = document.createElement('fieldset');

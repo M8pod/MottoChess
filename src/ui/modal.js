@@ -54,6 +54,41 @@ export async function askPromotionChoice() {
   });
 }
 
+const HELP_COMMANDS = [
+  ['Notazione mossa compatta', 'es. e4, Nf3, exd5, e8=D'],
+  ['Notazione "città italiane"', 'es. Empoli 4, cavallo Firenze 3'],
+  ['Arrocco', 'O-O oppure O-O-O, o "arrocco corto" / "arrocco lungo"'],
+  ['l', "annuncia l'ultima mossa giocata"],
+  ['l + numero (es. l5)', 'annuncia le ultime N mosse giocate'],
+  ['c', "annuncia il tempo residuo, tuo e dell'avversario"],
+  ['s + numero (es. s4)', 'annuncia tutti i pezzi sulla traversa 4, comprese le caselle vuote'],
+  ['s + lettera (es. se)', 'annuncia tutti i pezzi sulla colonna Empoli, comprese le caselle vuote'],
+  ['aiuto', 'apre questo elenco comandi'],
+];
+
+export async function showHelpDialog() {
+  const body = document.createElement('div');
+  const intro = document.createElement('p');
+  intro.textContent = 'Comandi disponibili nel campo di testo durante la partita:';
+  body.appendChild(intro);
+
+  const list = document.createElement('ul');
+  HELP_COMMANDS.forEach(([cmd, desc]) => {
+    const li = document.createElement('li');
+    const strong = document.createElement('strong');
+    strong.textContent = cmd;
+    li.append(strong, `: ${desc}`);
+    list.appendChild(li);
+  });
+  body.appendChild(list);
+
+  return openDialog({
+    titleText: 'Comandi disponibili',
+    bodyNode: body,
+    buttons: [{ label: 'Chiudi', value: true, primary: true }],
+  });
+}
+
 export async function askResignConfirmation() {
   return openDialog({
     titleText: 'Confermi abbandono partita?',

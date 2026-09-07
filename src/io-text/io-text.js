@@ -155,6 +155,42 @@ function resolveIntent(intent, legalMoves) {
   return { from: move.from, to: move.to };
 }
 
+// Comandi informativi (non sono mosse, funzionano sempre indipendentemente
+// dal turno): l'ultima mossa, le ultime N mosse, tempo residuo, pezzi su una
+// traversa/colonna, aiuto. Riconosciuti PRIMA di tentare il parsing mossa in
+// parseMoveText, così non entrano mai in conflitto con la notazione (nessuna
+// mossa scacchistica è "l", "c", "s"+cifra/lettera o "aiuto").
+const CMD_HELP_RE = /^aiuto$/i;
+const CMD_CLOCK_RE = /^c$/i;
+const CMD_LAST_MOVES_RE = /^l(\d+)?$/i;
+const CMD_RANK_RE = /^s([1-8])$/i;
+const CMD_FILE_RE = /^s([a-h])$/i;
+
+// Ritorna uno tra:
+//  { type: 'help' }
+//  { type: 'clock' }
+//  { type: 'lastMove' } | { type: 'lastMoves', count }
+//  { type: 'rank', rank: '1'-'8' } | { type: 'file', file: 'a'-'h' }
+//  null se il testo non è un comando riconosciuto
+export function parseCommandText(rawText) {
+  const t = (rawText || '').trim();
+  if (!t) return null;
+
+  if (CMD_HELP_RE.test(t)) return { type: 'help' };
+  if (CMD_CLOCK_RE.test(t)) return { type: 'clock' };
+
+  let m = CMD_LAST_MOVES_RE.exec(t);
+  if (m) return m[1] ? { type: 'lastMoves', count: Number(m[1]) } : { type: 'lastMove' };
+
+  m = CMD_RANK_RE.exec(t);
+  if (m) return { type: 'rank', rank: m[1] };
+
+  m = CMD_FILE_RE.exec(t);
+  if (m) return { type: 'file', file: m[1].toLowerCase() };
+
+  return null;
+}
+
 // API principale. Ritorna sempre uno tra:
 //  { ok: true, move: {from,to,promotion?} }
 //  { ok: false, reason: 'invalid' }   testo non interpretabile

@@ -24,6 +24,12 @@ async function loadTemplate(color, type) {
 export async function createPieceElement(color, type, fillHex) {
   const template = await loadTemplate(color, type);
   const svg = document.importNode(template, true);
+  // Fallback ereditato: alcuni path del set Cburnett (es. pedone, dama e
+  // torre nere) non hanno un attributo fill proprio e prendono il nero di
+  // default SVG. Impostandolo sulla radice, qualunque path privo di fill
+  // esplicito lo eredita; i path con fill già esplicito (bordi "none",
+  // dettagli decorativi come l'occhio del cavallo) non vengono toccati.
+  svg.setAttribute('fill', fillHex);
   const baseFills = color === 'w' ? ['#fff', '#ffffff'] : ['#000', '#000000'];
   for (const baseFill of baseFills) {
     svg.querySelectorAll(`[fill="${baseFill}"]`).forEach((el) => {

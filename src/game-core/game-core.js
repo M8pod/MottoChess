@@ -23,6 +23,11 @@ export class GameCore {
     return this.chess.moves({ square, verbose: true });
   }
 
+  // { type, color } | undefined
+  pieceAt(square) {
+    return this.chess.get(square);
+  }
+
   allLegalMoves() {
     return this.chess.moves({ verbose: true });
   }

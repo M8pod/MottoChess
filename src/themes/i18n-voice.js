@@ -73,6 +73,15 @@ export function describeSquare(square, piece, { selected = false } = {}) {
   return label;
 }
 
+// Descrizione di una casella per i comandi informativi "s+numero"/"s+lettera"
+// (elenco pezzi su una traversa/colonna): a differenza di describeSquare(),
+// annuncia esplicitamente anche le caselle vuote.
+export function describeSquareForListing(square, piece) {
+  const base = squareToCity(square);
+  if (!piece) return `${base}, vuota`;
+  return `${base}, ${PIECE_NAME_IT[piece.type]} ${COLOR_NAME_IT[piece.color]}`;
+}
+
 // Costruisce il testo "compatto" (notazione standard) per una mossa.
 export function moveToCompactText(move) {
   return move.san;
