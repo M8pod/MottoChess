@@ -17,6 +17,12 @@ const ELO_BY_LEVEL = {
 
 const STOCKFISH_WORKER_URL = new URL('../vendor/stockfish/stockfish.js', import.meta.url);
 
+// Tempo massimo di riflessione del motore. Con i tempi di partita lunghi
+// Stockfish si allocherebbe anche minuti per una singola mossa: attendere
+// tanto contro il computer è snervante, quindi oltre questa soglia gli si
+// chiede di fermarsi e giocare la miglior mossa trovata fino a quel momento.
+const MAX_THINK_MS = 20000;
+
 export class Engine {
   constructor() {
     this.worker = null;
@@ -42,8 +48,9 @@ export class Engine {
   }
 
   // Chiede la mossa migliore. Se sono forniti i tempi residui (ms), lascia che
-  // sia Stockfish a gestire la propria allocazione del tempo (go wtime/btime);
-  // altrimenti usa un tempo di riflessione fisso (partita senza orologio).
+  // sia Stockfish a gestire la propria allocazione del tempo (go wtime/btime),
+  // comunque entro MAX_THINK_MS; altrimenti usa un tempo di riflessione fisso
+  // (partita senza orologio).
   async bestMove({ wtimeMs, btimeMs, wincMs = 0, bincMs = 0 } = {}) {
     let goCmd;
     if (typeof wtimeMs === 'number' && typeof btimeMs === 'number') {
@@ -55,7 +62,16 @@ export class Engine {
       goCmd = 'go movetime 1000';
     }
 
-    const line = await this._send(goCmd, (l) => l.startsWith('bestmove'));
+    // 'stop' fa rispondere subito Stockfish con un bestmove: il limite vale
+    // quindi come tetto massimo, senza rallentare le mosse più rapide.
+    const stopTimer = setTimeout(() => this._command('stop'), MAX_THINK_MS);
+    let line;
+    try {
+      line = await this._send(goCmd, (l) => l.startsWith('bestmove'));
+    } finally {
+      clearTimeout(stopTimer);
+    }
+
     const parts = line.split(' ');
     const uci = parts[1]; // es. 'e2e4' oppure '(none)' a fine partita
     if (!uci || uci === '(none)') return null;
@@ -70,6 +86,9 @@ export class Engine {
   }
 
   _command(cmd) {
+    // Il motore può essere già stato distrutto (uscita dalla partita mentre
+    // stava ancora pensando): in quel caso il comando non ha più destinatario.
+    if (!this.worker) return;
     this.worker.postMessage(cmd);
   }
 

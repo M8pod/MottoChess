@@ -206,6 +206,23 @@ legend {
   padding: 0 0.4rem;
 }
 
+.preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.preview-row button {
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  border: 2px solid var(--brand-gold);
+  background: var(--brand-green);
+  color: var(--text-cream);
+}
+.preview-row button[aria-pressed="true"] {
+  background: var(--brand-bordeaux);
+}
+
 .color-swatch-preview {
   display: flex;
   gap: 0.5rem;

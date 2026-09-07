@@ -29,8 +29,8 @@ export const DARK_SQUARE_COLORS = {
 export const AMBIENT_TRACKS = {
   nessuna: { label: 'Nessuna', file: null },
   newage: { label: 'New age (rilassante)', file: 'newage_loop_v1.mp3' },
-  giappone: { label: 'Giapponese (taiko, shamisen, koto)', file: 'giappone_loop_v1.mp3' },
-  spiaggia: { label: 'Spiaggia (mare, aerei, voci)', file: 'spiaggia_loop_v1.mp3' },
+  giappone: { label: 'Orientale', file: 'giappone_loop_v1.mp3' },
+  spiaggia: { label: 'Spiaggia', file: 'spiaggia_loop_v1.mp3' },
 };
 
 export const DEFAULT_SETTINGS = {
