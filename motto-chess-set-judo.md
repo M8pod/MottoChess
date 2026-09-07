@@ -346,9 +346,12 @@ Ogni parola compare quindi una volta sola in tutto il set.
   però perfetto per un altro evento: il comando testuale non compreso (vedi sotto).
 - **Per la patta la parola esatta è "Hikiwake"** (引き分け), il pareggio. È il termine
   giusto al posto di "matte".
-- **Il re non viene mai catturato** negli scacchi: la partita finisce con lo scacco
-  matto. La categoria "cattura del re" prevista nelle specifiche generali non si
-  attiverebbe mai, quindi le categorie di cattura utili scendono da 4 a 3.
+- **Il suono di cattura è del pezzo che MANGIA, non di quello mangiato.** Se la torre
+  mangia un pedone si sente il suono della torre. Le catture diventano quindi **sei**,
+  una per tipo di pezzo, e non tre come nell'impostazione iniziale. Di conseguenza
+  serve anche un suono per il re, che negli scacchi non viene mai catturato ma
+  catturare può eccome. Lato codice questo significa leggere `moveObj.piece` (il pezzo
+  che muove) e non `moveObj.captured`.
 
 ### I sedici suoni
 
@@ -360,13 +363,18 @@ Per ciascuno: evento, proposta, durata indicativa. I suoni frequenti devono esse
 1. `judo_move` — mossa qualunque pezzo. Passo scivolato sul tatami (*suri-ashi*), secco
    e attutito. Molto corto, 150-250 ms. È il suono più ripetuto del gioco: se è lungo o
    caratterizzato, dopo dieci mosse diventa fastidioso.
-2. `judo_capture_pedone` — cattura di un pedone. Tonfo leggero di un corpo sul tatami.
-   300-400 ms.
-3. `judo_capture_minori` — cattura di torre, alfiere o cavallo. Tonfo più pieno, con un
-   po' di rimbombo del tatami. 400-600 ms.
-4. `judo_capture_dama` — cattura della dama. Tonfo pesante e ampio, la proiezione
-   perfetta, con una breve reazione di pubblico. 700 ms-1 s. È la cattura più rara e
-   più pesante: è qui che il set può permettersi teatralità.
+2-4. **Catture, una per pezzo che mangia (sei in tutto).** Tutte costruite sulla stessa
+   base — schiocco dell'*ukemi*, impatto sul tatami, coda di sala — con sopra la voce
+   del pezzo che esegue la presa. Prodotte e scelte in `Judo FX`, prefisso `00`:
+   - pedone: solo caduta, nessuna voce
+   - dama: urlo di attacco femminile
+   - torre: verso gutturale di un uomo molto corpulento
+   - cavallo: urlo maschile gutturale sulla parola *uchi-mata*
+   - alfiere: urlo maschile acuto e roco tipo "watta"
+   - re: voce maschile veloce e decisa che pronuncia "Jigoro Kano", il fondatore del judo
+
+   La voce va **generata asciutta**, senza riverbero proprio: la coda di sala la mette
+   già l'impatto, e due riverberi sovrapposti impastano il suono.
 5. `judo_select` — selezione di un pezzo al tocco. Fruscio della presa sul judogi
    (*kumi-kata*), la stoffa afferrata. 100-200 ms.
 6. `judo_deselect` — deselezione. La presa che si lascia, fruscio in uscita. 100-200 ms.
@@ -431,6 +439,51 @@ resa/tempo proprio, patta. Erano il punto più incompleto dell'elenco iniziale.
   successiva del motore, che può arrivare subito dopo.
 - Le parole giapponesi vanno pronunciate da voce maschile secca, in stile arbitrale: non
   recitata, non enfatica.
+
+### Stato di avanzamento — da dove ripartire
+
+Aggiornato al 7 settembre 2026. **6 suoni su 16 completati.** Tutto il materiale sta in
+`Judo FX/`; i file definitivi hanno il prefisso `00` e sono in WAV.
+
+**Fatte tutte e sei le catture**, una per pezzo che esegue la presa:
+`00 cattura di pedone.wav` (0,71 s), `00 cattura di dama.wav` (0,53 s),
+`00 cattura di torre.wav` (1,00 s), `00 cattura di cavallo.wav` (0,63 s),
+`00 cattura di alfiere.wav` (1,00 s), `00 cattura di re.wav` (0,62 s).
+
+**In lavorazione il movimento**: le prese grezze sono `mossa_tatami_v1..v4.mp3` più il
+montaggio continuo `mossa_tatami_LUNGO.wav` da 8 secondi; manca il taglio definitivo.
+
+**Restano da produrre**: selezione, deselezione, arrocco, promozione, scacco, mossa
+illegale, testo non interpretabile, le cinque uscite di fine partita e le due sigle.
+L'elenco con nomi file, durate e chiamate arbitrali previste è in `Judo FX/LEGGIMI.md`.
+
+Le prese scartate dopo l'ascolto sono in `Judo FX/vecchi/`.
+
+### Metodo di generazione: cosa funziona davvero
+
+Imparato sul campo, vale per tutti i suoni che restano.
+
+- **Versi e rumori → modello `eleven_text_to_sound_v2`** (nodo `sfx`). **Frasi
+  pronunciate → sintesi vocale `eleven_v3`** con direzione recitativa tra parentesi
+  quadre. Invertirli non funziona: alla sintesi vocale chiesta di urlare *uchi-mata* è
+  venuta fuori una lettura, e al modello sfx chiesta una parola precisa vengono
+  vocalizzi inintelligibili.
+- **Il modello sfx non supera i 2 secondi**, qualunque cosa gli si chieda: né
+  descrivendo un'azione continua né chiedendo esplicitamente più secondi. Per ottenere
+  materiale più lungo si generano più prese e **si uniscono i campioni in WAV**.
+  Attenzione: concatenare direttamente gli MP3 produce un file che si sente per intero
+  ma **dichiara la durata del solo primo segmento**, e gli editor mostrano la forma
+  d'onda troncata.
+- **Gli aggettivi di piccolezza vanno evitati.** "Soft", "short", "close-mic", "thin",
+  "nasal", "yelp" hanno prodotto prima un impatto da soldatino di plastica e poi un urlo
+  da neonato. Per ottenere il taglio senza la piccolezza si descrive la **tensione**:
+  uomo adulto a piena gola, gola roca, voce che si incrina.
+- **Le voci vanno generate asciutte**, senza riverbero: la coda di sala la mette
+  l'impatto, e due riverberi sovrapposti impastano.
+- **Costo: 16,665 crediti a generazione** per gli effetti sonori, circa il doppio o il
+  triplo per la sintesi vocale. Ordini di grandezza sotto le immagini, che ne costavano
+  1.827 l'una.
+- Il flow ElevenLabs di lavoro è "Motto Chess - Judo FX".
 
 ### Interventi sul codice necessari per il set sonoro
 
