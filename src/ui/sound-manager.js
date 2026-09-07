@@ -42,6 +42,19 @@ const SYSTEM_SOUNDS = new Set([
 export class SoundManager {
   constructor(getSettings) {
     this.getSettings = getSettings; // () => settings corrente
+    // Un elemento <audio> per file, creato una volta sola e tenuto in vita:
+    // creare un nuovo Audio a ogni riproduzione lo lasciava senza riferimenti
+    // (poteva essere raccolto dal garbage collector a metà suono) e ricaricava
+    // il file ogni volta, con il risultato che alcuni suoni — tipicamente
+    // quelli delle mosse dell'avversario, che partono senza un tocco
+    // dell'utente — non venivano riprodotti.
+    this.elements = new Map();
+  }
+
+  // Scalda la cache dei suoni di gioco: va chiamata dopo un'interazione
+  // dell'utente (es. avvio partita), così il primo suono non arriva in ritardo.
+  preloadGameSounds() {
+    Object.values(GAME_SOUND_FILES).forEach((file) => this._element(GAME_SOUNDS_BASE + file));
   }
 
   playGame(name) {
@@ -59,11 +72,26 @@ export class SoundManager {
     this._play(UI_SOUNDS_BASE + file, settings.volumeUi);
   }
 
+  _element(src) {
+    let el = this.elements.get(src);
+    if (!el) {
+      el = new Audio(src);
+      el.preload = 'auto';
+      this.elements.set(src, el);
+    }
+    return el;
+  }
+
   _play(src, volume) {
     try {
-      const audio = new Audio(src);
-      audio.volume = Math.max(0, Math.min(1, volume));
-      audio.play().catch(() => {});
+      const el = this._element(src);
+      el.volume = Math.max(0, Math.min(1, volume));
+      try {
+        el.currentTime = 0;
+      } catch {
+        // file non ancora caricato: parte comunque dall'inizio
+      }
+      el.play().catch(() => {});
     } catch {
       // riproduzione audio non disponibile: non blocca l'interazione
     }

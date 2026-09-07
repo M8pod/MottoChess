@@ -15,6 +15,44 @@ export class BoardView {
   constructor(container, { onSquareClick }) {
     this.container = container;
     this.onSquareClick = onSquareClick;
+    this.buttons = new Map(); // square -> <button>
+    this.pieceSignatures = new Map(); // square -> descrizione del pezzo disegnato
+    this.orientation = null;
+  }
+
+  // Le 64 caselle vengono create una volta sola (e ricreate solo se cambia
+  // l'orientamento, cioè mai durante una partita). Aggiornare i pulsanti
+  // esistenti invece di ricostruire la scacchiera a ogni mossa è ciò che
+  // permette a VoiceOver di non perdere il punto in cui si trova il cursore.
+  _buildGrid(orientation) {
+    this.container.innerHTML = '';
+    this.buttons.clear();
+    this.pieceSignatures.clear();
+    this.container.setAttribute('role', 'grid');
+    this.container.setAttribute('aria-label', 'Scacchiera');
+
+    const ranks = orientation === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7, 8];
+    const files = orientation === 'w' ? FILES : [...FILES].reverse();
+
+    for (const rank of ranks) {
+      const rowEl = document.createElement('div');
+      rowEl.className = 'board-row';
+      rowEl.setAttribute('role', 'row');
+
+      for (const file of files) {
+        const square = `${file}${rank}`;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `square ${isDarkSquare(square) ? 'dark' : 'light'}`;
+        btn.setAttribute('role', 'gridcell');
+        btn.dataset.square = square;
+        btn.addEventListener('click', () => this.onSquareClick(square));
+        rowEl.appendChild(btn);
+        this.buttons.set(square, btn);
+      }
+      this.container.appendChild(rowEl);
+    }
+    this.orientation = orientation;
   }
 
   // state:
@@ -35,6 +73,8 @@ export class BoardView {
       legalTargets,
     } = state;
 
+    if (this.orientation !== orientation) this._buildGrid(orientation);
+
     const pieceBySquare = new Map();
     for (const row of boardMatrix) {
       for (const cell of row) {
@@ -42,46 +82,27 @@ export class BoardView {
       }
     }
 
-    const ranks = orientation === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7, 8];
-    const files = orientation === 'w' ? FILES : [...FILES].reverse();
+    for (const [square, btn] of this.buttons) {
+      const piece = pieceBySquare.get(square) || null;
+      const selected = selectedSquare === square;
 
-    this.container.innerHTML = '';
-    this.container.setAttribute('role', 'grid');
-    this.container.setAttribute('aria-label', 'Scacchiera');
+      btn.style.backgroundColor = isDarkSquare(square) ? darkHex : lightHex;
+      btn.setAttribute('aria-label', describeSquare(square, piece, { selected }));
+      btn.classList.toggle('selected', selected);
+      btn.classList.toggle('legal-target', Boolean(legalTargets && legalTargets.has(square)));
 
-    for (const rank of ranks) {
-      const rowEl = document.createElement('div');
-      rowEl.className = 'board-row';
-      rowEl.setAttribute('role', 'row');
-
-      for (const file of files) {
-        const square = `${file}${rank}`;
-        const piece = pieceBySquare.get(square) || null;
-        const dark = isDarkSquare(square);
-
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `square ${dark ? 'dark' : 'light'}`;
-        btn.style.backgroundColor = dark ? darkHex : lightHex;
-        btn.setAttribute('role', 'gridcell');
-        btn.dataset.square = square;
-
-        const selected = selectedSquare === square;
-        btn.setAttribute('aria-label', describeSquare(square, piece, { selected }));
-        if (selected) btn.classList.add('selected');
-        if (legalTargets && legalTargets.has(square)) btn.classList.add('legal-target');
-
+      // L'SVG viene rigenerato solo se il pezzo sulla casella (o il suo
+      // colore) è effettivamente cambiato.
+      const fillHex = piece ? pieceColors[piece.color] : '';
+      const signature = piece ? `${piece.color}${piece.type}${fillHex}` : '';
+      if (this.pieceSignatures.get(square) !== signature) {
+        btn.replaceChildren();
         if (piece) {
-          const fillHex = pieceColors[piece.color];
           // eslint-disable-next-line no-await-in-loop
-          const svg = await createPieceElement(piece.color, piece.type, fillHex);
-          btn.appendChild(svg);
+          btn.appendChild(await createPieceElement(piece.color, piece.type, fillHex));
         }
-
-        btn.addEventListener('click', () => this.onSquareClick(square));
-        rowEl.appendChild(btn);
+        this.pieceSignatures.set(square, signature);
       }
-      this.container.appendChild(rowEl);
     }
   }
 }

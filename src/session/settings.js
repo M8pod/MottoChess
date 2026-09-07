@@ -1,6 +1,13 @@
 // session/settings: impostazioni app-wide, persistenti.
 const STORAGE_KEY = 'mottochess.settings.v1';
 
+// Versione delle impostazioni salvate. Va incrementata quando un default
+// cambia e il nuovo valore deve valere anche per chi ha già delle
+// impostazioni salvate (vedi migrazione in loadSettings).
+//  2: volume musica di sottofondo abbassato da 0.5 a 0.3, per non coprire
+//     narrazione e suoni di gioco.
+const SETTINGS_VERSION = 2;
+
 export const LIGHT_SQUARE_COLORS = {
   bianco: '#FFFFFF',
   giallo: '#F2D06B',
@@ -22,6 +29,8 @@ export const DARK_SQUARE_COLORS = {
 export const AMBIENT_TRACKS = {
   nessuna: { label: 'Nessuna', file: null },
   newage: { label: 'New age (rilassante)', file: 'newage_loop_v1.mp3' },
+  giappone: { label: 'Giapponese (taiko, shamisen, koto)', file: 'giappone_loop_v1.mp3' },
+  spiaggia: { label: 'Spiaggia (mare, aerei, voci)', file: 'spiaggia_loop_v1.mp3' },
 };
 
 export const DEFAULT_SETTINGS = {
@@ -32,8 +41,11 @@ export const DEFAULT_SETTINGS = {
   timeElapsedEvery10MinEnabled: true,
   volumeGame: 1,
   volumeUi: 0.8,
-  volumeAmbient: 0.5,
+  // La musica resta volutamente sotto ai suoni di gioco: è un sottofondo, non
+  // deve competere con la narrazione dello screen reader.
+  volumeAmbient: 0.3,
   ambientTrack: 'nessuna', // default: musica di sottofondo disattivata
+  settingsVersion: SETTINGS_VERSION,
   lightSquareColorName: 'verde salvia',
   darkSquareColorName: 'viola',
   language: 'it',
@@ -51,7 +63,16 @@ export function loadSettings() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return structuredClone(DEFAULT_SETTINGS);
     const parsed = JSON.parse(raw);
-    return { ...structuredClone(DEFAULT_SETTINGS), ...parsed, pgn: { ...DEFAULT_SETTINGS.pgn, ...(parsed.pgn || {}) } };
+    const merged = {
+      ...structuredClone(DEFAULT_SETTINGS),
+      ...parsed,
+      pgn: { ...DEFAULT_SETTINGS.pgn, ...(parsed.pgn || {}) },
+    };
+    if (parsed.settingsVersion !== SETTINGS_VERSION) {
+      merged.volumeAmbient = DEFAULT_SETTINGS.volumeAmbient;
+      merged.settingsVersion = SETTINGS_VERSION;
+    }
+    return merged;
   } catch {
     return structuredClone(DEFAULT_SETTINGS);
   }

@@ -50,19 +50,6 @@ export function renderGameScreen(container, ctx, session) {
   boardContainer.className = 'board-container';
   container.appendChild(boardContainer);
 
-  const form = document.createElement('form');
-  form.className = 'move-form';
-  const textInput = document.createElement('input');
-  textInput.type = 'text';
-  textInput.autocomplete = 'off';
-  textInput.setAttribute('aria-label', 'Comando mossa testuale o comando informativo (aiuto per l\'elenco)');
-  textInput.placeholder = 'es. e4, Empoli 4, aiuto...';
-  const submitBtn = document.createElement('button');
-  submitBtn.type = 'submit';
-  submitBtn.textContent = 'Invia';
-  form.append(textInput, submitBtn);
-  container.appendChild(form);
-
   const functionBox = document.createElement('div');
   functionBox.className = 'function-box';
   const resignBtn = document.createElement('button');
@@ -79,6 +66,21 @@ export function renderGameScreen(container, ctx, session) {
   postGamePanel.className = 'post-game-panel';
   postGamePanel.hidden = true;
   container.appendChild(postGamePanel);
+
+  // Il campo comandi è l'ULTIMO elemento della schermata: così, se il focus di
+  // VoiceOver si perde, si ritrova sempre in fondo alla pagina.
+  const form = document.createElement('form');
+  form.className = 'move-form';
+  const textInput = document.createElement('input');
+  textInput.type = 'text';
+  textInput.autocomplete = 'off';
+  textInput.setAttribute('aria-label', 'Comando mossa testuale o comando informativo (aiuto per l\'elenco)');
+  textInput.placeholder = 'es. e4, Empoli 4, aiuto...';
+  const submitBtn = document.createElement('button');
+  submitBtn.type = 'submit';
+  submitBtn.textContent = 'Invia';
+  form.append(textInput, submitBtn);
+  container.appendChild(form);
 
   const gameCore = new GameCore();
   let selectedSquare = null;
@@ -124,7 +126,14 @@ export function renderGameScreen(container, ctx, session) {
   // s+numero/lettera, aiuto) devono funzionare anche fuori dal proprio turno
   // e a partita finita. Solo l'invio di una mossa vera è vincolato al turno
   // (vedi handler 'submit').
+  //
+  // Il focus torna al campo comandi dopo ogni mossa, ma NON viene mai tolto
+  // alla scacchiera: se l'utente la sta esplorando al tocco o con VoiceOver,
+  // rubargli il focus lo riporterebbe indietro a ogni mossa dell'avversario.
   function focusInput() {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active.closest('.board-container')) return;
+    if (active === textInput) return;
     textInput.focus();
   }
 
@@ -290,10 +299,12 @@ export function renderGameScreen(container, ctx, session) {
 
     if (clock) clock.start(gameCore.turn);
 
+    // Rimesso prima della mossa del motore: durante la sua riflessione il
+    // campo comandi resta pronto e i comandi informativi restano usabili.
+    focusInput();
+
     if (gameCore.turn !== session.color) {
       await triggerEngineMove();
-    } else {
-      focusInput();
     }
   }
 
@@ -484,6 +495,7 @@ export function renderGameScreen(container, ctx, session) {
   });
 
   async function start() {
+    sound.preloadGameSounds();
     sound.playGame('session_start');
     ambient.play(ambientTrackKey, settings.volumeAmbient);
     engine = new Engine();
@@ -500,10 +512,10 @@ export function renderGameScreen(container, ctx, session) {
 
     if (clock) clock.start(gameCore.turn);
 
+    focusInput();
+
     if (gameCore.turn !== session.color) {
       await triggerEngineMove();
-    } else {
-      focusInput();
     }
   }
 

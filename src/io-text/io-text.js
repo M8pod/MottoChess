@@ -124,9 +124,6 @@ function resolveIntent(intent, legalMoves) {
 
   if (intent.pieceHint) {
     candidates = candidates.filter((m) => m.piece === intent.pieceHint);
-  } else if (intent.fromFile || intent.fromRank) {
-    // Nessun pieceHint esplicito ma c'è disambiguazione: resta compatibile
-    // con qualsiasi pezzo (il caso tipico è il pedone in notazione compatta).
   }
 
   if (intent.fromSquare) {
@@ -145,7 +142,21 @@ function resolveIntent(intent, legalMoves) {
   // Una mossa di promozione compare nella lista mosse legali una volta per
   // ciascun pezzo promuovibile (stesso from/to, promotion diversa): non è
   // un'ambiguità reale, la scelta del pezzo arriva da intent.promotion.
-  const uniqueFromTo = new Set(candidates.map((m) => `${m.from}-${m.to}`));
+  let uniqueFromTo = new Set(candidates.map((m) => `${m.from}-${m.to}`));
+
+  // Convenzione della notazione algebrica: una destinazione senza lettera di
+  // pezzo indica una mossa di PEDONE ("e4" = pedone in e4). Serve come
+  // discriminante quando anche un altro pezzo può raggiungere quella casella
+  // (es. "e4" con il pedone ancora in e2 e un cavallo in c3): prima l'input
+  // veniva rifiutato come ambiguo, impedendo di fatto il doppio passo.
+  if (uniqueFromTo.size > 1 && !intent.pieceHint) {
+    const pawnCandidates = candidates.filter((m) => m.piece === 'p');
+    if (pawnCandidates.length > 0) {
+      candidates = pawnCandidates;
+      uniqueFromTo = new Set(candidates.map((m) => `${m.from}-${m.to}`));
+    }
+  }
+
   if (uniqueFromTo.size !== 1) return null;
 
   const move = candidates[0];
