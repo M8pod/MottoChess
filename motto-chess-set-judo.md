@@ -378,10 +378,9 @@ Per ciascuno: evento, proposta, durata indicativa. I suoni frequenti devono esse
 8. `judo_promotion` — promozione del pedone. È un avanzamento di grado: **nodo della
    cintura che viene stretto**, chiuso da un colpo secco di taiko o da un piccolo gong.
    800 ms-1,2 s.
-9. `judo_check` — scacco. **"Waza-ari!"**: mezzo punto, minaccia seria ma l'incontro
-   continua. È l'analogia più esatta dello scacco. In alternativa **"Osaekomi!"**
-   (immobilizzazione iniziata: sei in pericolo, devi reagire subito), semanticamente
-   ancora più vicino ma parola più lunga. 600-900 ms.
+9. `judo_check` — scacco. **"Osaekomi!"**: immobilizzazione iniziata, sei in pericolo e
+   devi reagire subito, ma l'incontro non è finito. È l'analogia più stretta dello
+   scacco ed è la scelta adottata. 600-900 ms.
 10. `judo_illegal` — mossa illegale. **"Shido!"**, la penalità per infrazione: hai
     tentato qualcosa che il regolamento non ammette. Calzante e immediato. 500-700 ms.
 11. `judo_invalid` — testo non interpretabile dal parser. **"Matte!"** ("fermi"): non ho
