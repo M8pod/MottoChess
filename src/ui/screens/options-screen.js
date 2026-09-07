@@ -142,8 +142,8 @@ export function renderOptionsScreen(container, ctx) {
   setFieldset.appendChild(setLegend);
   const themes = [
     { value: 'classico', label: 'Classico', available: true },
+    { value: 'judo', label: 'Judo (judogi bianco e blu)', available: true },
     { value: 'samurai-ninja', label: 'Samurai vs Ninja (in arrivo)', available: false },
-    { value: 'judo', label: 'Judo (in arrivo)', available: false },
     { value: 'cani-gatti', label: 'Cani vs Gatti (in arrivo)', available: false },
   ];
   themes.forEach((theme) => {
@@ -153,7 +153,7 @@ export function renderOptionsScreen(container, ctx) {
     radio.name = 'pieceSet';
     radio.value = theme.value;
     radio.disabled = !theme.available;
-    radio.checked = theme.value === 'classico';
+    radio.checked = theme.value === (config.pieceSet || 'classico');
     label.append(radio, ` ${theme.label}`);
     setFieldset.appendChild(label);
   });
@@ -194,7 +194,7 @@ export function renderOptionsScreen(container, ctx) {
       minutes: Number(minutesSelect.value),
       incrementSec: Number(incrementSelect.value),
       level: Number(levelSelect.value),
-      pieceSet: 'classico',
+      pieceSet: form.querySelector('input[name="pieceSet"]:checked').value,
       ambientTrack: ambientSelect.value,
     };
     saveLastConfig(newConfig);

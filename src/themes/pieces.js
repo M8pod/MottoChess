@@ -1,15 +1,32 @@
-// Set pezzi Classico (Cburnett/Lichess, GPLv2+): SVG vettoriali ricolorabili
-// via fill/stroke. v1 include solo questo set (vedi "Scope v1" nella spec).
-const PIECES_BASE = 'assets/pieces/classico-cburnett/';
+// Set pezzi disponibili.
+//
+// - "classico" (Cburnett/Lichess, GPLv2+): SVG vettoriali, ricolorati in base
+//   al colore delle caselle scelto in Impostazioni.
+// - "judo": illustrazioni raster (PNG con trasparenza) con judogi bianco e blu
+//   fissi. Non ricolorabili: i colori sono parte dell'identità del set, come
+//   nelle competizioni.
+const PIECE_SETS = {
+  classico: { base: 'assets/pieces/classico-cburnett/', ext: 'svg', recolorable: true },
+  judo: { base: 'assets/pieces/judo/', ext: 'png', recolorable: false },
+};
+
 const FILE_LETTER = { p: 'P', n: 'N', b: 'B', r: 'R', q: 'Q', k: 'K' };
 
 const templateCache = new Map();
 
-async function loadTemplate(color, type) {
-  const key = `${color}${type}`;
+function setConfig(setName) {
+  return PIECE_SETS[setName] || PIECE_SETS.classico;
+}
+
+function pieceUrl(setName, color, type) {
+  const { base, ext } = setConfig(setName);
+  return `${base}${color}${FILE_LETTER[type]}.${ext}`;
+}
+
+async function loadTemplate(setName, color, type) {
+  const key = `${setName}${color}${type}`;
   if (templateCache.has(key)) return templateCache.get(key);
-  const url = `${PIECES_BASE}${color}${FILE_LETTER[type]}.svg`;
-  const res = await fetch(url);
+  const res = await fetch(pieceUrl(setName, color, type));
   const text = await res.text();
   const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
   const template = doc.documentElement;
@@ -17,12 +34,23 @@ async function loadTemplate(color, type) {
   return template;
 }
 
-// Ritorna un <svg> pronto da inserire nel DOM, con il fill del corpo pezzo
-// sostituito da fillHex. Bordo (stroke) e dettagli decorativi (es. occhio del
-// cavallo) restano invariati: si sostituisce SOLO il fill uguale al colore
-// "base" del pezzo (bianco o nero) nell'SVG originale.
-export async function createPieceElement(color, type, fillHex) {
-  const template = await loadTemplate(color, type);
+// Ritorna l'elemento pronto da inserire nel DOM per un pezzo.
+//
+// Nei set ricolorabili è un <svg> con il fill del corpo pezzo sostituito da
+// fillHex; bordo (stroke) e dettagli decorativi (es. occhio del cavallo)
+// restano invariati. Nei set raster è una <img> con i colori originali.
+export async function createPieceElement(color, type, fillHex, setName = 'classico') {
+  if (!setConfig(setName).recolorable) {
+    const img = document.createElement('img');
+    img.src = pieceUrl(setName, color, type);
+    img.alt = '';
+    img.className = 'piece-svg';
+    img.setAttribute('aria-hidden', 'true');
+    img.draggable = false;
+    return img;
+  }
+
+  const template = await loadTemplate(setName, color, type);
   const svg = document.importNode(template, true);
   // Fallback ereditato: alcuni path del set Cburnett (es. pedone, dama e
   // torre nere) non hanno un attributo fill proprio e prendono il nero di

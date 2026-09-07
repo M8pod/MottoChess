@@ -71,6 +71,7 @@ export class BoardView {
       pieceColors,
       selectedSquare,
       legalTargets,
+      pieceSet = 'classico',
     } = state;
 
     if (this.orientation !== orientation) this._buildGrid(orientation);
@@ -94,12 +95,12 @@ export class BoardView {
       // L'SVG viene rigenerato solo se il pezzo sulla casella (o il suo
       // colore) è effettivamente cambiato.
       const fillHex = piece ? pieceColors[piece.color] : '';
-      const signature = piece ? `${piece.color}${piece.type}${fillHex}` : '';
+      const signature = piece ? `${pieceSet}${piece.color}${piece.type}${fillHex}` : '';
       if (this.pieceSignatures.get(square) !== signature) {
         btn.replaceChildren();
         if (piece) {
           // eslint-disable-next-line no-await-in-loop
-          btn.appendChild(await createPieceElement(piece.color, piece.type, fillHex));
+          btn.appendChild(await createPieceElement(piece.color, piece.type, fillHex, pieceSet));
         }
         this.pieceSignatures.set(square, signature);
       }

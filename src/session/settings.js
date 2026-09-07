@@ -10,6 +10,7 @@ const SETTINGS_VERSION = 2;
 
 export const LIGHT_SQUARE_COLORS = {
   bianco: '#FFFFFF',
+  avorio: '#F2EDE4',
   giallo: '#F2D06B',
   rosa: '#F2B8C6',
   'verde salvia': '#9CAF88',
@@ -22,6 +23,14 @@ export const DARK_SQUARE_COLORS = {
   rosso: '#8C2F2F',
   viola: '#6B4C7A',
   blu: '#2F4A8C',
+  navy: '#243B6B',
+};
+
+// Colori casella consigliati per set pezzi. Il set Judo ha judogi bianchi e
+// blu fissi: su caselle bianche o blu pure i pezzi si confonderebbero con il
+// fondo, quindi usa avorio e navy, volutamente diversi dai due judogi.
+export const PIECE_SET_SQUARE_COLORS = {
+  judo: { light: 'avorio', dark: 'navy' },
 };
 
 // Tracce musicali di sottofondo (loop continuo durante la partita), canale

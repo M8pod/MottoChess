@@ -9,7 +9,11 @@ import {
   describeSquareForListing,
   CITY_BY_FILE,
 } from '../../themes/i18n-voice.js';
-import { LIGHT_SQUARE_COLORS, DARK_SQUARE_COLORS } from '../../session/settings.js';
+import {
+  LIGHT_SQUARE_COLORS,
+  DARK_SQUARE_COLORS,
+  PIECE_SET_SQUARE_COLORS,
+} from '../../session/settings.js';
 import { pieceFillFromSquareColor } from '../color-utils.js';
 import { BoardView } from '../board.js';
 import { ChessClock } from '../clock.js';
@@ -97,8 +101,11 @@ export function renderGameScreen(container, ctx, session) {
       : session.ambientTrack;
 
   function currentColors() {
-    const lightHex = LIGHT_SQUARE_COLORS[settings.lightSquareColorName];
-    const darkHex = DARK_SQUARE_COLORS[settings.darkSquareColorName];
+    // Un set con pezzi a colori fissi (Judo) impone i propri colori casella:
+    // quelli scelti in Impostazioni valgono per i set ricolorabili.
+    const setColors = PIECE_SET_SQUARE_COLORS[session.pieceSet];
+    const lightHex = LIGHT_SQUARE_COLORS[setColors ? setColors.light : settings.lightSquareColorName];
+    const darkHex = DARK_SQUARE_COLORS[setColors ? setColors.dark : settings.darkSquareColorName];
     return {
       lightHex,
       darkHex,
@@ -119,6 +126,7 @@ export function renderGameScreen(container, ctx, session) {
       pieceColors,
       selectedSquare,
       legalTargets: new Set(legalTargetsForSelected.keys()),
+      pieceSet: session.pieceSet,
     });
   }
 
