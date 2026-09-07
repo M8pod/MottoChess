@@ -95,8 +95,14 @@ del tessuto.
 Il modello **non produce nessuna di queste caratteristiche da solo**. Restituisce PNG
 **1376×768 (16:9), senza canale alfa**, con la scacchiera della trasparenza *dipinta*
 dentro l'immagine. La post-produzione è quindi obbligatoria, ed è automatizzata dallo
-script `process_piece.py` (nessuna dipendenza esterna: legge via BMP prodotto da `sips`
-e scrive il PNG con `zlib`). Lo script:
+script `tools/process_piece.py` (nessuna dipendenza esterna: legge via BMP prodotto da
+`sips` e scrive il PNG con `zlib`), che si usa così:
+
+```
+python3 tools/process_piece.py <sorgente.png> <destinazione.png> <rapporto altezza> 168
+```
+
+Lo script:
 
 1. rimuove lo sfondo con un *flood fill* dai bordi che riconosce i due grigi della
    scacchiera. Partendo dai bordi, un grigio interno alla figura — i capelli grigi del
@@ -110,6 +116,13 @@ e scrive il PNG con `zlib`). Lo script:
 La prova sul pedone ha dato un risultato pulito su entrambi i colori di casella, senza
 aloni, e la figura resta riconoscibile a 56 pixel. Non è quindi necessario pagare un
 modello di rimozione sfondo.
+
+### Rapporti d'altezza effettivamente usati
+
+Valori passati allo script per i dodici pezzi consegnati, da riusare per eventuali
+rigenerazioni: re `0.95`, dama `0.90`, alfiere `0.86`, cavallo `0.86`, pedone `0.66`,
+torre `0.57` (quest'ultima, essendo seduta, viene comunque allargata fino a riempire il
+canvas in orizzontale).
 
 ## 5. Gerarchia delle altezze
 
