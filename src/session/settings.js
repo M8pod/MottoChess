@@ -6,7 +6,11 @@ const STORAGE_KEY = 'mottochess.settings.v1';
 // impostazioni salvate (vedi migrazione in loadSettings).
 //  2: volume musica di sottofondo abbassato da 0.5 a 0.3, per non coprire
 //     narrazione e suoni di gioco.
-const SETTINGS_VERSION = 2;
+//  3: musica di sottofondo abbassata ulteriormente da 0.3 a 0.15 (copriva
+//     ancora troppo narrazione e suoni di gioco/set), suoni di gioco portati
+//     da 1 a 0.9 per restare in equilibrio con la narrazione dello screen
+//     reader (non regolabile da questa app: è il canale audio dell'utente).
+const SETTINGS_VERSION = 3;
 
 export const LIGHT_SQUARE_COLORS = {
   bianco: '#FFFFFF',
@@ -48,11 +52,11 @@ export const DEFAULT_SETTINGS = {
   timeWarning10Enabled: true,
   timeWarning5Enabled: true,
   timeElapsedEvery10MinEnabled: true,
-  volumeGame: 1,
+  volumeGame: 0.9,
   volumeUi: 0.8,
   // La musica resta volutamente sotto ai suoni di gioco: è un sottofondo, non
   // deve competere con la narrazione dello screen reader.
-  volumeAmbient: 0.3,
+  volumeAmbient: 0.15,
   ambientTrack: 'nessuna', // default: musica di sottofondo disattivata
   settingsVersion: SETTINGS_VERSION,
   lightSquareColorName: 'verde salvia',
@@ -79,6 +83,7 @@ export function loadSettings() {
     };
     if (parsed.settingsVersion !== SETTINGS_VERSION) {
       merged.volumeAmbient = DEFAULT_SETTINGS.volumeAmbient;
+      merged.volumeGame = DEFAULT_SETTINGS.volumeGame;
       merged.settingsVersion = SETTINGS_VERSION;
     }
     return merged;

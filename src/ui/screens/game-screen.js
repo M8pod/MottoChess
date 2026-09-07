@@ -231,7 +231,7 @@ export function renderGameScreen(container, ctx, session) {
       text = 'Hai abbandonato la partita. Hai perso.';
     }
 
-    sound.playGame(soundKey);
+    sound.playGame(soundKey, { pieceSet: session.pieceSet });
     narrator.announce(text);
     autoSaveGame(outcome);
 
@@ -243,7 +243,7 @@ export function renderGameScreen(container, ctx, session) {
     menuBtn.type = 'button';
     menuBtn.textContent = 'Torna al menu';
     menuBtn.addEventListener('click', () => {
-      sound.playGame('session_end');
+      sound.playGame('session_end', { pieceSet: session.pieceSet });
       if (engine) engine.destroy();
       navigate('home');
     });
@@ -276,12 +276,13 @@ export function renderGameScreen(container, ctx, session) {
   }
 
   async function afterMoveApplied(moveObj) {
+    const soundCtx = { pieceSet: session.pieceSet, piece: moveObj.piece };
     if (moveObj.isKingsideCastle() || moveObj.isQueensideCastle()) {
-      sound.playGame('castle');
+      sound.playGame('castle', soundCtx);
     } else if (moveObj.captured) {
-      sound.playGame('capture');
+      sound.playGame('capture', soundCtx);
     } else {
-      sound.playGame('move');
+      sound.playGame('move', soundCtx);
     }
 
     const status = gameCore.status();
@@ -292,10 +293,10 @@ export function renderGameScreen(container, ctx, session) {
     narrator.announce(text);
 
     if (status.isCheck && !status.isCheckmate) {
-      sound.playGame('check');
+      sound.playGame('check', soundCtx);
     }
     if (moveObj.isPromotion()) {
-      sound.playGame('promotion');
+      sound.playGame('promotion', soundCtx);
       narrator.announce(promotionConfirmationText(moveObj.promotion));
     }
 
@@ -334,13 +335,14 @@ export function renderGameScreen(container, ctx, session) {
 
   async function onSquareClick(square) {
     if (gameOver || gameCore.turn !== session.color) return;
+    const soundCtx = { pieceSet: session.pieceSet };
 
     if (!selectedSquare) {
       const moves = gameCore.legalMovesFrom(square);
       if (moves.length === 0) return;
       selectedSquare = square;
       legalTargetsForSelected = new Map(moves.map((m) => [m.to, m]));
-      sound.playGame('select');
+      sound.playGame('select', soundCtx);
       await renderBoardAndControls();
       return;
     }
@@ -348,7 +350,7 @@ export function renderGameScreen(container, ctx, session) {
     if (square === selectedSquare) {
       selectedSquare = null;
       legalTargetsForSelected = new Map();
-      sound.playGame('deselect');
+      sound.playGame('deselect', soundCtx);
       await renderBoardAndControls();
       return;
     }
@@ -372,11 +374,11 @@ export function renderGameScreen(container, ctx, session) {
     if (otherMoves.length > 0) {
       selectedSquare = square;
       legalTargetsForSelected = new Map(otherMoves.map((m) => [m.to, m]));
-      sound.playGame('select');
+      sound.playGame('select', soundCtx);
     } else {
       selectedSquare = null;
       legalTargetsForSelected = new Map();
-      sound.playGame('illegal');
+      sound.playGame('illegal', soundCtx);
     }
     await renderBoardAndControls();
   }
@@ -488,7 +490,7 @@ export function renderGameScreen(container, ctx, session) {
     const legalMoves = gameCore.allLegalMoves();
     const result = parseMoveText(raw, legalMoves);
     if (!result.ok) {
-      sound.playGame(result.reason === 'invalid' ? 'invalid' : 'illegal');
+      sound.playGame(result.reason === 'invalid' ? 'invalid' : 'illegal', { pieceSet: session.pieceSet });
       return;
     }
     const moveObj = gameCore.applyMove(result.move);
@@ -503,8 +505,8 @@ export function renderGameScreen(container, ctx, session) {
   });
 
   async function start() {
-    sound.preloadGameSounds();
-    sound.playGame('session_start');
+    sound.preloadGameSounds(session.pieceSet);
+    sound.playGame('session_start', { pieceSet: session.pieceSet });
     ambient.play(ambientTrackKey, settings.volumeAmbient);
     engine = new Engine();
     await engine.init();

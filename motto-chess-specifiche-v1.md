@@ -112,7 +112,7 @@ Tre notifiche indipendenti, ciascuna attivabile/disattivabile singolarmente da I
 
 - **Accessibilità**: on/off suoni set tematici; stile narrazione compatto/espanso (vedi sopra)
   - **Notifiche vocali tempo** (attive di default, ciascuna disattivabile singolarmente): avviso al 10% tempo residuo; avviso al 5% tempo residuo; annuncio tempo trascorso ogni 10 minuti (solo partite con tempo > 20 minuti). Vedi dettagli in "Notifiche vocali tempo".
-- **Audio**: volume separato suoni di gioco vs suoni UI/menu
+- **Audio**: volume separato per suoni di gioco (default 90%), suoni UI/menu (default 80%) e musica di sottofondo (default 15%, volutamente basso per non competere con narrazione e suoni di gioco/set — non esiste un volume "voiceover" separato: VoiceOver è lo screen reader dell'utente, il suo volume è dell'OS, non dell'app)
 - **Grafica scacchiera**: due select indipendenti colore caselle chiare/scure
   - Chiare: bianco, giallo, rosa, verde salvia (default), azzurro
   - Scure: nero, verde oliva, rosso, viola (default), blu
@@ -139,10 +139,16 @@ Suoni UI/menu (navigazione tra schermate/menu, estetica casinò) separati e NON 
 
 `assets/sounds/default/non-usati-v1/chess_turn_change.wav`: prodotto ma non utilizzato in v1 (previsto per il cambio turno, valutato non necessario). Conservato per un eventuale uso futuro, non collegato a nessun evento.
 
-### Set Judo (neutro, granularità ridotta)
-- Movimento: suono unico per qualsiasi pezzo
-- Cattura: 4 categorie — pedone, dama, re, pezzi speciali (torre/alfiere/cavallo condivisi). Nessuna distinzione bianco/nero.
-- Pezzi bianchi = judogi bianco; pezzi "neri" (standard scacchistico) = judogi blu (visivamente blu, notazione resta nera)
+### Set Judo — completo, vedi `motto-chess-set-judo.md` sezione 10
+17 suoni, tutti collegati in `sound-manager.js`. Nessuna parola pronunciata da nessuna
+parte (nemmeno lo scacco): comunica con suoni d'ambiente da palazzetto sportivo e urla
+non verbali. Granularità **maggiore** del set default su alcuni eventi (sei categorie di
+cattura e due di scacco, differenziate per pezzo) e **minore** su altri (selezione e
+deselezione condividono un file, mossa illegale e comando non capito pure, così le tre
+categorie d'esito vittoria/sconfitta/patta al posto delle cinque del default). Pezzi
+bianchi = judogi bianco; pezzi "neri" (standard scacchistico) = judogi blu (visivamente
+blu, notazione resta nera). Caselle fisse avorio/navy, non ricolorabili (vedi
+`motto-chess-set-judo.md` sezione 3 per il perché non sono bianco/blu puri).
 
 ### Set Cani vs Gatti (a fazioni, granularità minima)
 - Un suono generico "cane" per tutti i pezzi cani, un suono generico "gatto" per tutti i pezzi gatti (movimento e cattura)
@@ -155,7 +161,7 @@ Suoni UI/menu (navigazione tra schermate/menu, estetica casinò) separati e NON 
 - Samurai = sempre pezzi bianchi, Ninja = sempre pezzi neri
 
 ### Principio generale
-Suoni "di sistema" (mossa illegale, scacco, scacco matto, esiti fine partita) restano neutri e condivisi anche nei set a fazioni.
+Suoni "di sistema" (mossa illegale, scacco, scacco matto, esiti fine partita) restano neutri e condivisi anche nei set a fazioni — **salvo deroga esplicita di un set**, come il set Judo (vedi sopra), che li caratterizza deliberatamente. In `sound-manager.js` questo si traduce così: il toggle "suoni set tematici" non silenzia mai questi eventi, ma quando è disattivato li forza al set default neutro invece che al set tematico attivo.
 
 ## Brand identity
 
@@ -181,17 +187,19 @@ Suoni "di sistema" (mossa illegale, scacco, scacco matto, esiti fine partita) re
 
 ## Scope v1
 
-**v1 include solo il set pezzi Classico** (SVG Cburnett da Lichess) con il set sonoro default. Gli altri 3 set tematici (Samurai vs Ninja, Judo, Cani vs Gatti) non sono selezionabili in v1: assets grafici e sonori non ancora pronti (vedi sotto). L'architettura a moduli disaccoppiati (`themes/i18n-voice`, ecc.) resta comunque predisposta per aggiungerli senza refactoring.
+**v1 include il set pezzi Classico** (SVG Cburnett da Lichess) con il set sonoro default, **e il set Judo** (illustrazioni raster + set sonoro proprio), entrambi completi e selezionabili. Gli altri 2 set tematici (Samurai vs Ninja, Cani vs Gatti) non sono selezionabili in v1: assets grafici e sonori non ancora pronti (vedi sotto). L'architettura a moduli disaccoppiati (`themes/i18n-voice`, `sound-manager` con `GAME_SETS`, ecc.) resta comunque predisposta per aggiungerli senza refactoring.
 
 ## Asset pronti
 
 - **Set sonoro default (14 suoni di gioco)** — completo, cartella `assets/sounds/default/`. Sigla di chiusura generata come placeholder (`chess_session_end_placeholder_v1.mp3`, via ElevenLabs sfx, formato mp3 mentre gli altri sono wav): da sostituire con versione definitiva nello stesso stile/formato prima del rilascio.
 - **SVG pezzi set Classico** (Cburnett, Lichess, GPLv2+) — scaricati, cartella `assets/pieces/classico-cburnett/` (12 file + `LICENSE-cburnett.txt` con attribuzione).
+- **Set pezzi Judo** — illustrazioni raster, cartella `assets/pieces/judo/` (12 PNG). Judogi bianco/blu fissi, non ricolorabili (vedi `motto-chess-set-judo.md` sezione 3).
+- **Set sonoro Judo (17 suoni di gioco)** — completo, cartella `assets/sounds/judo/`, collegato in `sound-manager.js`. Dettagli in `motto-chess-set-judo.md` sezione 10.
 
 ## Da produrre (asset non ancora pronti)
 
-- Set sonoro Judo
-- Set sonoro Cani vs Gatti
+- Set sonoro e grafico Samurai vs Ninja
+- Set sonoro e grafico Cani vs Gatti
 - Set sonoro Samurai vs Ninja
 - Illustrazioni pezzi Judo, Cani vs Gatti, Samurai vs Ninja (Gemini)
 - Set sonoro UI/menu completo (estetica casinò) — al momento solo `assets/sounds/ui-menu/chess_ui_navigation.wav`

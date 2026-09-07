@@ -353,7 +353,7 @@ Ogni parola compare quindi una volta sola in tutto il set.
   catturare può eccome. Lato codice questo significa leggere `moveObj.piece` (il pezzo
   che muove) e non `moveObj.captured`.
 
-### I sedici suoni
+### I suoni del set
 
 Per ciascuno: evento, proposta, durata indicativa. I suoni frequenti devono essere
 **corti e sobri**, perché si sentono decine di volte per partita.
@@ -363,7 +363,7 @@ Per ciascuno: evento, proposta, durata indicativa. I suoni frequenti devono esse
 1. `judo_move` — mossa qualunque pezzo. Passo scivolato sul tatami (*suri-ashi*), secco
    e attutito. Molto corto, 150-250 ms. È il suono più ripetuto del gioco: se è lungo o
    caratterizzato, dopo dieci mosse diventa fastidioso.
-2-4. **Catture, una per pezzo che mangia (sei in tutto).** Tutte costruite sulla stessa
+2-7. **Catture, una per pezzo che mangia (sei in tutto).** Tutte costruite sulla stessa
    base — schiocco dell'*ukemi*, impatto sul tatami, coda di sala — con sopra la voce
    del pezzo che esegue la presa. Prodotte e scelte in `Judo FX`, prefisso `00`:
    - pedone: solo caduta, nessuna voce
@@ -375,87 +375,135 @@ Per ciascuno: evento, proposta, durata indicativa. I suoni frequenti devono esse
 
    La voce va **generata asciutta**, senza riverbero proprio: la coda di sala la mette
    già l'impatto, e due riverberi sovrapposti impastano il suono.
-5. `judo_select` — selezione di un pezzo al tocco. Fruscio della presa sul judogi
-   (*kumi-kata*), la stoffa afferrata. 100-200 ms.
-6. `judo_deselect` — deselezione. La presa che si lascia, fruscio in uscita. 100-200 ms.
+8. `judo_touch` — selezione **e** deselezione di un pezzo al tocco, **stesso file per
+   entrambi gli eventi**: fruscio della presa sul judogi (*kumi-kata*), la stoffa
+   afferrata. Deciso di non differenziare i due versi (presa/rilascio), il fruscio unico
+   basta a segnalare l'interazione senza aggiungere un suono in più al set. **Fatto**:
+   `Judo FX/00 selezione deselezione.wav` (0,32 s).
 
 **Situazioni particolari**
 
-7. `judo_castle` — arrocco. Due passi rapidi coordinati più fruscio di judogi, a
+9. `judo_castle` — arrocco. Due passi rapidi coordinati più fruscio di judogi, a
    suggerire lo spostamento simultaneo di due persone (*tai-sabaki*). 500-700 ms.
-8. `judo_promotion` — promozione del pedone. È un avanzamento di grado: **nodo della
-   cintura che viene stretto**, chiuso da un colpo secco di taiko o da un piccolo gong.
-   800 ms-1,2 s.
-9. `judo_check` — scacco. **"Osaekomi!"**: immobilizzazione iniziata, sei in pericolo e
-   devi reagire subito, ma l'incontro non è finito. È l'analogia più stretta dello
-   scacco ed è la scelta adottata. 600-900 ms.
-10. `judo_illegal` — mossa illegale. **"Shido!"**, la penalità per infrazione: hai
-    tentato qualcosa che il regolamento non ammette. Calzante e immediato. 500-700 ms.
-11. `judo_invalid` — testo non interpretabile dal parser. **"Matte!"** ("fermi"): non ho
-    capito, ci si ferma. Deve restare nettamente distinguibile da `judo_illegal`, perché
-    i due errori hanno cause diverse e chi non vede si orienta solo con il suono.
-    500-700 ms.
+10. `judo_promotion` — promozione del pedone. **Ripensato il 7 settembre 2026**: non più
+    il nodo della cintura, ma il **"wow" di stupore del pubblico dagli spalti** di un
+    palazzetto sportivo, coerente con lo stesso pubblico usato per `judo_outcome_win`.
+    **Fatto**: `Judo FX/00 promozione.wav` (0,72 s).
+11-12. `judo_check_altri` / `judo_check_dama` — scacco, **due varianti in base al pezzo
+    che dà scacco**, sullo stesso principio delle catture (la voce appartiene a chi
+    agisce): voce maschile per qualunque pezzo tranne la dama, voce femminile quando è
+    la dama a dare scacco. **Ripensato il 7 settembre 2026**: non più la chiamata
+    "Osaekomi!" ipotizzata all'inizio, ma **urla non verbali**, sullo stesso principio
+    delle catture — nessuna parola pronunciata, solo un verso di attacco maschile o
+    femminile a seconda del pezzo. 600-900 ms indicativi. **Fatti**:
+    `Judo FX/00 scacco maschile.wav` (0,88 s), `Judo FX/00 scacco dama.wav` (1,42 s, oltre
+    target ma approvato all'ascolto).
+13. `judo_denied` — **unificato il 7 settembre 2026**: mossa illegale e testo non
+    interpretabile dal parser condividono ora lo stesso suono, invece dei due
+    `judo_illegal`/`judo_invalid` distinti previsti all'inizio. Non più una chiamata
+    arbitrale ("Shido!"/"Matte!") ma un **buzzer metallico di diniego**, stile
+    tabellone sonoro sportivo: stessa logica già usata per gli esiti di partita, il
+    narratore specifica a voce la causa (mossa illegale vs comando non capito), il
+    suono comunica solo "rifiutato". **Fatto**:
+    `Judo FX/00 illegale e comando non compreso.wav` (0,45 s).
 
-**Esiti della partita (cinque categorie, non due)**
+**Esiti della partita (unificati: tre categorie, non cinque)**
 
-12. `judo_outcome_win_checkmate` — vittoria per scacco matto. **"Ippon!"**, il punto
-    pieno che chiude l'incontro, seguito da applauso breve. È qui che "ippon" dà il
-    massimo: è letteralmente la fine vittoriosa. 1,5-2,5 s.
-13. `judo_outcome_loss_checkmate` — sconfitta per scacco matto. Stessa scena vista
-    dall'altra parte: tonfo pesante della propria caduta e "Ippon!" dell'arbitro, ma con
-    coda sonora in discesa e senza applauso, o con un mormorio di pubblico deluso.
-    **Deve essere inconfondibile rispetto al precedente**: è l'unica coppia del set in
-    cui la stessa parola compare due volte, e solo perché l'arbitro è neutrale. Se
-    all'ascolto i due non si distinguono al primo colpo, va cambiato l'impianto.
-    1,5-2,5 s.
-14. `judo_outcome_win_resign_timeout` — l'avversario abbandona o finisce il tempo.
-    **"Kiken-gachi!"**, la vittoria per ritiro dell'avversario: è esattamente questo il
-    termine tecnico. 1,5-2 s.
-15. `judo_outcome_loss_resign_timeout` — abbandono proprio o tempo scaduto. Nessuna
-    esultanza: **saluto (*rei*)** e chiusura sobria, eventualmente "Sore-made" in tono
-    piano. 1,5-2 s.
-16. `judo_outcome_draw` — stallo o patta. **"Hikiwake!"**, il pareggio. Vale per tutti i
-    casi di patta: stallo, tripla ripetizione, cinquanta mosse, materiale insufficiente
-    (il narratore specifica a voce quale). 1,5-2 s.
+Decisione presa il 7 settembre 2026: le cinque categorie d'esito inizialmente previste
+(vittoria/sconfitta per matto, vittoria/sconfitta per resa o tempo, patta) collassano in
+tre. Il motivo per cui il matto e la resa/tempo non vanno distinti nel suono è lo stesso
+già valido per la patta: **il narratore lo dice già a voce**, il suono deve solo
+comunicare "hai vinto / hai perso / pareggiato", non il motivo. Bonus non previsto:
+sparendo "Ippon!" e "Kiken-gachi!" come parole pronunciate, cade anche l'unica eccezione
+alla regola "una chiamata arbitrale = un solo significato" — ora vale senza eccezioni.
 
-**Sigle**
+14. `judo_outcome_win` — vittoria del giocatore, qualunque sia la causa. Tonfo sul tatami
+    più applauso di pubblico in un palazzetto di arti marziali, nessuna voce. **Fatto**:
+    `Judo FX/00 vittoria.wav` (0,97 s).
+15. `judo_outcome_loss` — sconfitta del giocatore, qualunque sia la causa. Tonfo sul
+    tatami più urlo di strazio con un leggero riverbero, nessuna voce. **Fatto**:
+    `Judo FX/00 sconfitta.wav` (1,13 s).
+16. `judo_outcome_draw` — stallo o patta, qualunque sia la causa (stallo, tripla
+    ripetizione, cinquanta mosse, materiale insufficiente: il narratore specifica a voce
+    quale). **Ripensato il 7 settembre 2026**: non più "Hikiwake!" ma **fischietto
+    arbitrale** in un palazzetto sportivo, in linea con la svolta non verbale del resto
+    del set. **Fatto**: `Judo FX/00 patta stallo.wav` (0,53 s).
 
-17. `judo_session_start` — inizio partita. **"Hajime!"** ("cominciate"), preceduto dal
-    saluto. È la sigla d'apertura del set. 1,5-2,5 s.
-18. `judo_session_end` — chiusura sessione, al ritorno al menu. **"Sore-made"** ("è
-    tutto") e saluto finale. 2-3 s.
+**Sigla**
 
-I numeri 12-16 sono le cinque categorie d'esito già previste dall'app: vittoria per
-matto, sconfitta per matto, vittoria per resa/tempo avversario, sconfitta per
-resa/tempo proprio, patta. Erano il punto più incompleto dell'elenco iniziale.
+17. `judo_session` — **unificata il 7 settembre 2026**: un solo file per apertura e
+    chiusura sessione, al posto dei due `judo_session_start`/`judo_session_end` distinti
+    ("Hajime!"/"Sore-made") previsti all'inizio. Pubblico che incita dagli spalti di un
+    palazzetto sportivo, riprodotto identico in entrambi i momenti. **Fatto**:
+    `Judo FX/00 iniziale finale.wav` (3,00 s).
 
 ### Note tecniche
 
-- Cartella: `assets/sounds/judo/`. Formato `.wav` come il set default, mono va benissimo.
+- Cartella sorgente/lavorazione: `Judo FX/` (file `00 *.wav`, prese grezze, scarti in
+  `vecchi/`). Cartella asset di gioco: `assets/sounds/judo/` (nomi puliti tipo
+  `judo_capture_pawn.wav`, mappati in `sound-manager.js`). Formato `.wav` come il set
+  default.
 - Livello: i suoni frequenti vanno tenuti **percettivamente più bassi** di quelli
   d'esito, altrimenti il gioco diventa rumoroso. Meglio normalizzarli tutti e poi
   abbassare i primi sei.
 - Nessuna coda di riverbero lunga sui suoni frequenti: si accavallerebbero con la mossa
   successiva del motore, che può arrivare subito dopo.
-- Le parole giapponesi vanno pronunciate da voce maschile secca, in stile arbitrale: non
-  recitata, non enfatica.
+- **Il set finito non contiene alcuna parola pronunciata**, nemmeno lo scacco (deciso
+  ripensato in corsa a urla non verbali): comunica interamente con suoni d'ambiente da
+  palazzetto sportivo (tonfo, applauso, urlo, buzzer, fischietto, coro) e versi non
+  verbali (le urla delle catture e dello scacco). La nota "le parole giapponesi vanno
+  pronunciate da voce maschile secca" della bozza iniziale non si applica più a niente
+  in questo set: non resta.
 
 ### Stato di avanzamento — da dove ripartire
 
-Aggiornato al 7 settembre 2026. **6 suoni su 16 completati.** Tutto il materiale sta in
-`Judo FX/`; i file definitivi hanno il prefisso `00` e sono in WAV.
+Aggiornato al 7 settembre 2026. **Set completo: 17 suoni su 17.** Tutto il materiale
+sorgente sta in `Judo FX/` (file definitivi con prefisso `00`, WAV 2ch/44,1 kHz/Float32);
+copiati con nomi puliti in `assets/sounds/judo/` e collegati al gioco in
+`sound-manager.js` (vedi "Interventi sul codice" più sotto).
 
 **Fatte tutte e sei le catture**, una per pezzo che esegue la presa:
 `00 cattura di pedone.wav` (0,71 s), `00 cattura di dama.wav` (0,53 s),
 `00 cattura di torre.wav` (1,00 s), `00 cattura di cavallo.wav` (0,63 s),
 `00 cattura di alfiere.wav` (1,00 s), `00 cattura di re.wav` (0,62 s).
 
-**In lavorazione il movimento**: le prese grezze sono `mossa_tatami_v1..v4.mp3` più il
-montaggio continuo `mossa_tatami_LUNGO.wav` da 8 secondi; manca il taglio definitivo.
+**Fatti anche movimento e arrocco**: `00 mossa.wav` (0,53 s) e `00 arrocco.wav` (1,67 s),
+ritagliati da `mossa_tatami_v1..v4.mp3` / `mossa_tatami_LUNGO.wav`. Entrambi superano il
+target di durata indicato sopra (150-250 ms e 500-700 ms) ma sono stati approvati
+all'ascolto così come sono; `00 arrocco.wav` è stato riconvertito da Int16 a Float32 per
+uniformità con gli altri file definitivi.
 
-**Restano da produrre**: selezione, deselezione, arrocco, promozione, scacco, mossa
-illegale, testo non interpretabile, le cinque uscite di fine partita e le due sigle.
-L'elenco con nomi file, durate e chiamate arbitrali previste è in `Judo FX/LEGGIMI.md`.
+**Decise e fatte anche vittoria e sconfitta**, unificando le cinque categorie d'esito
+originarie in tre (vedi sopra): `00 vittoria.wav` (0,97 s, tonfo + applauso di pubblico)
+e `00 sconfitta.wav` (1,13 s, tonfo + urlo di strazio con riverbero leggero), montati a
+mano dall'utente in Amadeus Pro a partire da prese ElevenLabs più un tonfo sul tatami
+già in suo possesso.
+
+**Fatti anche selezione/deselezione (unico file) e scacco (due varianti)**:
+`00 selezione deselezione.wav` (0,32 s, stesso suono per i due eventi) e le due urla
+dello scacco, `00 scacco maschile.wav` (0,88 s) e `00 scacco dama.wav` (1,42 s, oltre
+target ma approvato all'ascolto) — stesso principio delle catture, la voce appartiene al
+pezzo che agisce, e come le catture **nessuna parola pronunciata**: solo urla.
+
+**Ripensate e fatte anche promozione e mossa illegale/testo non interpretabile**: la
+promozione passa dal nodo di cintura a un "wow" di stupore del pubblico, `00
+promozione.wav` (0,72 s); mossa illegale e testo non interpretabile si unificano in un
+solo buzzer metallico di diniego, stile tabellone sonoro sportivo, invece delle due
+chiamate arbitrali distinte previste all'inizio, `00 illegale e comando non
+compreso.wav` (0,45 s).
+
+**Ripensate e fatte anche patta e sigla**, sulla stessa linea non verbale da
+palazzetto: la patta passa da "Hikiwake!" a un **fischietto arbitrale**, `00 patta
+stallo.wav` (0,53 s); le due sigle d'apertura e chiusura si uniscono in un **solo
+file** — pubblico che incita dagli spalti, usato identico due volte — al posto di
+"Hajime!"/"Sore-made", `00 iniziale finale.wav` (3,00 s).
+
+**Il set finito non contiene alcuna parola pronunciata da nessuna parte**, scacco
+incluso: comunica interamente con suoni d'ambiente da palazzetto sportivo (tonfo,
+applauso, urlo, buzzer, fischietto, coro) e urla non verbali (catture e scacco). Questo
+va oltre il principio guida iniziale della sezione ("voce dell'arbitro riservata agli
+eventi rari") — di fatto quella voce non è mai stata usata, il set ha trovato un'altra
+strada fin dall'inizio.
 
 Le prese scartate dopo l'ascolto sono in `Judo FX/vecchi/`.
 
@@ -485,17 +533,38 @@ Imparato sul campo, vale per tutti i suoni che restano.
   1.827 l'una.
 - Il flow ElevenLabs di lavoro è "Motto Chess - Judo FX".
 
-### Interventi sul codice necessari per il set sonoro
+### Interventi sul codice — fatti l'8 settembre 2026
 
-- `sound-manager.js` oggi punta alla sola cartella `assets/sounds/default/` e ha una
-  chiave `capture` unica: serve una mappatura per set e la scelta della categoria di
-  cattura in base al pezzo mangiato.
-- `game-screen.js` deve passare il tipo di pezzo catturato (`moveObj.captured`) al
-  gestore dei suoni, informazione che oggi ha ma non usa.
-- Le specifiche generali stabiliscono che i suoni "di sistema" (illegale, scacco,
-  esiti) restino neutri anche nei set tematici. Le proposte qui sopra **derogano
-  volutamente** a quel principio, perché con voce arbitrale il set acquista carattere.
-  Va deciso se aggiornare la regola generale o se limitare la deroga al set Judo.
+`sound-manager.js` è stato riscritto attorno a un concetto di `GAME_SETS`: ogni set
+(oggi `default` e `judo`) ha la propria cartella, la propria mappatura evento→file e,
+soprattutto, una funzione `resolve(name, ctx)` opzionale che decide a quale chiave del
+proprio `files` corrisponde un evento "semantico" in arrivo da `game-screen.js`. Questo
+è il meccanismo che permette al set Judo di avere **una granularità diversa dal
+default senza toccare il chiamante**: sei suoni di cattura e due di scacco dove il
+default ne ha uno solo (differenziati per `ctx.piece`, il tipo del pezzo che agisce —
+letto da `moveObj.piece`, mai da `moveObj.captured`), ma un solo file condiviso per
+selezione/deselezione, per mossa-illegale/comando-non-capito, per le due sottocategorie
+di vittoria e di sconfitta, e per le due sigle. **Nota generale, non solo per Judo**:
+ogni set pezzi può avere non solo suoni diversi dagli altri, ma anche usi diversi dello
+stesso evento — un set futuro potrebbe differenziare ciò che Judo unifica, o viceversa.
+Vedi il commento in testa a `sound-manager.js` per il meccanismo.
+
+`game-screen.js` passa ora `{ pieceSet: session.pieceSet, piece: moveObj.piece }` (dove
+pertinente) a ogni chiamata `sound.playGame(...)`, e `preloadGameSounds(session.pieceSet)`
+all'avvio partita.
+
+**Decisione presa sulla deroga ai suoni "di sistema"** (illegale, scacco, esiti): le
+specifiche generali dicono che restano neutri anche nei set tematici, ma il set Judo li
+caratterizza deliberatamente. Risolto così: il toggle "suoni set tematici" non silenzia
+mai questi eventi (restano un `SYSTEM_SOUNDS`), ma quando è disattivato li forza
+comunque al set `default` neutro invece che a quello attivo; quando è attivo, il set
+Judo (o un futuro set tematico) li caratterizza come qualunque altro evento. Il toggle
+quindi non significa più "muto", ma "neutro vs. caratterizzato".
+
+Asset di gioco copiati in `assets/sounds/judo/` con nomi puliti (`judo_move.wav`,
+`judo_capture_pawn.wav`, `judo_touch.wav`, `judo_denied.wav`, `judo_outcome_win.wav`,
+`judo_session.wav`, ecc. — mappatura completa in `sound-manager.js`), a partire dai file
+`00 *.wav` di `Judo FX/`, che restano la sorgente di lavorazione.
 
 ## 11. Interventi necessari sul codice
 
