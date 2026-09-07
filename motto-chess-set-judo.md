@@ -322,7 +322,130 @@ Un pezzo si accetta solo se soddisfa tutti questi punti:
   riferimento.
 - Il judogi è un vero judogi e la cintura è annodata correttamente.
 
-## 10. Interventi necessari sul codice
+## 10. Set sonoro Judo
+
+### Principio guida: la voce dell'arbitro è una risorsa scarsa
+
+Ogni mossa, propria e avversaria, viene già annunciata a voce dal narratore in
+italiano (VoiceOver). Un suono che contiene **parlato** si sovrappone a quell'annuncio
+e rende entrambi incomprensibili.
+
+Da qui la regola che governa tutto il set: **niente voce sugli eventi frequenti**
+(movimento, cattura, selezione), la voce dell'arbitro **solo sugli eventi che
+concludono o cambiano la partita**, dove il narratore dice poco e una parola giapponese
+arriva pulita.
+
+Seconda regola, di accessibilità: **una chiamata arbitrale = un solo significato**. Se
+"ippon" indica sia una cattura sia la vittoria, chi non vede non può più distinguerli.
+Ogni parola compare quindi una volta sola in tutto il set.
+
+### Correzioni di terminologia
+
+- **"Matte" non è la fine dell'incontro**: significa "fermi", è un'interruzione
+  temporanea. La chiamata di fine incontro è **"Sore-made"** ("è tutto"). "Matte" resta
+  però perfetto per un altro evento: il comando testuale non compreso (vedi sotto).
+- **Per la patta la parola esatta è "Hikiwake"** (引き分け), il pareggio. È il termine
+  giusto al posto di "matte".
+- **Il re non viene mai catturato** negli scacchi: la partita finisce con lo scacco
+  matto. La categoria "cattura del re" prevista nelle specifiche generali non si
+  attiverebbe mai, quindi le categorie di cattura utili scendono da 4 a 3.
+
+### I sedici suoni
+
+Per ciascuno: evento, proposta, durata indicativa. I suoni frequenti devono essere
+**corti e sobri**, perché si sentono decine di volte per partita.
+
+**Eventi frequenti (nessuna voce)**
+
+1. `judo_move` — mossa qualunque pezzo. Passo scivolato sul tatami (*suri-ashi*), secco
+   e attutito. Molto corto, 150-250 ms. È il suono più ripetuto del gioco: se è lungo o
+   caratterizzato, dopo dieci mosse diventa fastidioso.
+2. `judo_capture_pedone` — cattura di un pedone. Tonfo leggero di un corpo sul tatami.
+   300-400 ms.
+3. `judo_capture_minori` — cattura di torre, alfiere o cavallo. Tonfo più pieno, con un
+   po' di rimbombo del tatami. 400-600 ms.
+4. `judo_capture_dama` — cattura della dama. Tonfo pesante e ampio, la proiezione
+   perfetta, con una breve reazione di pubblico. 700 ms-1 s. È la cattura più rara e
+   più pesante: è qui che il set può permettersi teatralità.
+5. `judo_select` — selezione di un pezzo al tocco. Fruscio della presa sul judogi
+   (*kumi-kata*), la stoffa afferrata. 100-200 ms.
+6. `judo_deselect` — deselezione. La presa che si lascia, fruscio in uscita. 100-200 ms.
+
+**Situazioni particolari**
+
+7. `judo_castle` — arrocco. Due passi rapidi coordinati più fruscio di judogi, a
+   suggerire lo spostamento simultaneo di due persone (*tai-sabaki*). 500-700 ms.
+8. `judo_promotion` — promozione del pedone. È un avanzamento di grado: **nodo della
+   cintura che viene stretto**, chiuso da un colpo secco di taiko o da un piccolo gong.
+   800 ms-1,2 s.
+9. `judo_check` — scacco. **"Waza-ari!"**: mezzo punto, minaccia seria ma l'incontro
+   continua. È l'analogia più esatta dello scacco. In alternativa **"Osaekomi!"**
+   (immobilizzazione iniziata: sei in pericolo, devi reagire subito), semanticamente
+   ancora più vicino ma parola più lunga. 600-900 ms.
+10. `judo_illegal` — mossa illegale. **"Shido!"**, la penalità per infrazione: hai
+    tentato qualcosa che il regolamento non ammette. Calzante e immediato. 500-700 ms.
+11. `judo_invalid` — testo non interpretabile dal parser. **"Matte!"** ("fermi"): non ho
+    capito, ci si ferma. Deve restare nettamente distinguibile da `judo_illegal`, perché
+    i due errori hanno cause diverse e chi non vede si orienta solo con il suono.
+    500-700 ms.
+
+**Esiti della partita (cinque categorie, non due)**
+
+12. `judo_outcome_win_checkmate` — vittoria per scacco matto. **"Ippon!"**, il punto
+    pieno che chiude l'incontro, seguito da applauso breve. È qui che "ippon" dà il
+    massimo: è letteralmente la fine vittoriosa. 1,5-2,5 s.
+13. `judo_outcome_loss_checkmate` — sconfitta per scacco matto. Stessa scena vista
+    dall'altra parte: tonfo pesante della propria caduta e "Ippon!" dell'arbitro, ma con
+    coda sonora in discesa e senza applauso, o con un mormorio di pubblico deluso.
+    **Deve essere inconfondibile rispetto al precedente**: è l'unica coppia del set in
+    cui la stessa parola compare due volte, e solo perché l'arbitro è neutrale. Se
+    all'ascolto i due non si distinguono al primo colpo, va cambiato l'impianto.
+    1,5-2,5 s.
+14. `judo_outcome_win_resign_timeout` — l'avversario abbandona o finisce il tempo.
+    **"Kiken-gachi!"**, la vittoria per ritiro dell'avversario: è esattamente questo il
+    termine tecnico. 1,5-2 s.
+15. `judo_outcome_loss_resign_timeout` — abbandono proprio o tempo scaduto. Nessuna
+    esultanza: **saluto (*rei*)** e chiusura sobria, eventualmente "Sore-made" in tono
+    piano. 1,5-2 s.
+16. `judo_outcome_draw` — stallo o patta. **"Hikiwake!"**, il pareggio. Vale per tutti i
+    casi di patta: stallo, tripla ripetizione, cinquanta mosse, materiale insufficiente
+    (il narratore specifica a voce quale). 1,5-2 s.
+
+**Sigle**
+
+17. `judo_session_start` — inizio partita. **"Hajime!"** ("cominciate"), preceduto dal
+    saluto. È la sigla d'apertura del set. 1,5-2,5 s.
+18. `judo_session_end` — chiusura sessione, al ritorno al menu. **"Sore-made"** ("è
+    tutto") e saluto finale. 2-3 s.
+
+I numeri 12-16 sono le cinque categorie d'esito già previste dall'app: vittoria per
+matto, sconfitta per matto, vittoria per resa/tempo avversario, sconfitta per
+resa/tempo proprio, patta. Erano il punto più incompleto dell'elenco iniziale.
+
+### Note tecniche
+
+- Cartella: `assets/sounds/judo/`. Formato `.wav` come il set default, mono va benissimo.
+- Livello: i suoni frequenti vanno tenuti **percettivamente più bassi** di quelli
+  d'esito, altrimenti il gioco diventa rumoroso. Meglio normalizzarli tutti e poi
+  abbassare i primi sei.
+- Nessuna coda di riverbero lunga sui suoni frequenti: si accavallerebbero con la mossa
+  successiva del motore, che può arrivare subito dopo.
+- Le parole giapponesi vanno pronunciate da voce maschile secca, in stile arbitrale: non
+  recitata, non enfatica.
+
+### Interventi sul codice necessari per il set sonoro
+
+- `sound-manager.js` oggi punta alla sola cartella `assets/sounds/default/` e ha una
+  chiave `capture` unica: serve una mappatura per set e la scelta della categoria di
+  cattura in base al pezzo mangiato.
+- `game-screen.js` deve passare il tipo di pezzo catturato (`moveObj.captured`) al
+  gestore dei suoni, informazione che oggi ha ma non usa.
+- Le specifiche generali stabiliscono che i suoni "di sistema" (illegale, scacco,
+  esiti) restino neutri anche nei set tematici. Le proposte qui sopra **derogano
+  volutamente** a quel principio, perché con voce arbitrale il set acquista carattere.
+  Va deciso se aggiornare la regola generale o se limitare la deroga al set Judo.
+
+## 11. Interventi necessari sul codice
 
 Da fare al momento dell'integrazione, non prima:
 
