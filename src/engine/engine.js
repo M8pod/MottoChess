@@ -19,9 +19,10 @@ const STOCKFISH_WORKER_URL = new URL('../vendor/stockfish/stockfish.js', import.
 
 // Tempo massimo di riflessione del motore. Con i tempi di partita lunghi
 // Stockfish si allocherebbe anche minuti per una singola mossa: attendere
-// tanto contro il computer è snervante, quindi oltre questa soglia gli si
-// chiede di fermarsi e giocare la miglior mossa trovata fino a quel momento.
-const MAX_THINK_MS = 20000;
+// tanto contro il computer è snervante e rallenta il gioco, quindi entro
+// questa soglia dall'inizio del suo turno gli si chiede di fermarsi e
+// giocare la miglior mossa trovata fino a quel momento.
+const MAX_THINK_MS = 6000;
 
 export class Engine {
   constructor() {

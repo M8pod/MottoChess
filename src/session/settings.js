@@ -57,12 +57,10 @@ export const DEFAULT_SETTINGS = {
   // La musica resta volutamente sotto ai suoni di gioco: è un sottofondo, non
   // deve competere con la narrazione dello screen reader.
   volumeAmbient: 0.15,
-  ambientTrack: 'nessuna', // default: musica di sottofondo disattivata
   settingsVersion: SETTINGS_VERSION,
   lightSquareColorName: 'verde salvia',
   darkSquareColorName: 'viola',
   language: 'it',
-  favoritePieceSet: 'classico',
   pgn: {
     includeDateTime: false,
     includeSetName: false,

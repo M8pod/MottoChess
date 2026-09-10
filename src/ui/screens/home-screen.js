@@ -57,7 +57,7 @@ export function renderHomeScreen(container, ctx) {
   const settingsBtn = document.createElement('button');
   settingsBtn.type = 'button';
   settingsBtn.className = 'big-button';
-  settingsBtn.textContent = 'Impostazioni';
+  settingsBtn.textContent = 'Extra';
   settingsBtn.addEventListener('click', () => navigate('settings'));
 
   container.append(playNowBtn, optionsBtn, savedBtn, settingsBtn);

@@ -95,10 +95,7 @@ export function renderGameScreen(container, ctx, session) {
 
   const boardView = new BoardView(boardContainer, { onSquareClick });
   const ambient = new AmbientPlayer();
-  const ambientTrackKey =
-    !session.ambientTrack || session.ambientTrack === 'predefinita'
-      ? settings.ambientTrack
-      : session.ambientTrack;
+  const ambientTrackKey = session.ambientTrack || 'nessuna';
 
   function currentColors() {
     // Un set con pezzi a colori fissi (Judo) impone i propri colori casella:
@@ -135,12 +132,15 @@ export function renderGameScreen(container, ctx, session) {
   // e a partita finita. Solo l'invio di una mossa vera è vincolato al turno
   // (vedi handler 'submit').
   //
-  // Il focus torna al campo comandi dopo ogni mossa, ma NON viene mai tolto
-  // alla scacchiera: se l'utente la sta esplorando al tocco o con VoiceOver,
-  // rubargli il focus lo riporterebbe indietro a ogni mossa dell'avversario.
+  // Il focus torna al campo comandi dopo ogni invio, ma NON viene mai tolto
+  // alla scacchiera (se l'utente la sta esplorando al tocco o con VoiceOver,
+  // rubargli il focus lo riporterebbe indietro a ogni mossa dell'avversario)
+  // né a un dialogo aperto (es. "aiuto"): lì il focus lo gestisce il <dialog>
+  // nativo, compreso il ripristino sul campo comandi alla chiusura.
   function focusInput() {
     const active = document.activeElement;
     if (active instanceof HTMLElement && active.closest('.board-container')) return;
+    if (active instanceof HTMLElement && active.closest('dialog')) return;
     if (active === textInput) return;
     textInput.focus();
   }
@@ -464,37 +464,46 @@ export function renderGameScreen(container, ctx, session) {
     }
   }
 
+  // Chi gioca dal campo testo (tipicamente con VoiceOver) non deve doverlo
+  // ritrovare ad ogni invio: attivare "Invia" sposta naturalmente il focus
+  // su quel pulsante, quindi lo riportiamo qui sul campo comandi in ogni
+  // caso (mossa valida, comando, mossa illegale, fuori turno, partita
+  // finita...). focusInput() rispetta comunque scacchiera e dialoghi aperti.
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const raw = textInput.value;
     textInput.value = '';
-    if (!raw.trim()) return;
+    try {
+      if (!raw.trim()) return;
 
-    // I comandi informativi funzionano sempre: fuori dal proprio turno e
-    // anche a partita finita (utile per rivedere l'ultima mossa/i tempi).
-    const command = parseCommandText(raw);
-    if (command) {
-      handleCommand(command);
-      return;
-    }
+      // I comandi informativi funzionano sempre: fuori dal proprio turno e
+      // anche a partita finita (utile per rivedere l'ultima mossa/i tempi).
+      const command = parseCommandText(raw);
+      if (command) {
+        handleCommand(command);
+        return;
+      }
 
-    if (gameOver) {
-      narrator.announce('La partita è terminata.');
-      return;
-    }
-    if (gameCore.turn !== session.color) {
-      narrator.announce('Non è il tuo turno.');
-      return;
-    }
+      if (gameOver) {
+        narrator.announce('La partita è terminata.');
+        return;
+      }
+      if (gameCore.turn !== session.color) {
+        narrator.announce('Non è il tuo turno.');
+        return;
+      }
 
-    const legalMoves = gameCore.allLegalMoves();
-    const result = parseMoveText(raw, legalMoves);
-    if (!result.ok) {
-      sound.playGame(result.reason === 'invalid' ? 'invalid' : 'illegal', { pieceSet: session.pieceSet });
-      return;
+      const legalMoves = gameCore.allLegalMoves();
+      const result = parseMoveText(raw, legalMoves);
+      if (!result.ok) {
+        sound.playGame(result.reason === 'invalid' ? 'invalid' : 'illegal', { pieceSet: session.pieceSet });
+        return;
+      }
+      const moveObj = gameCore.applyMove(result.move);
+      await afterMoveApplied(moveObj);
+    } finally {
+      focusInput();
     }
-    const moveObj = gameCore.applyMove(result.move);
-    await afterMoveApplied(moveObj);
   });
 
   resignBtn.addEventListener('click', async () => {

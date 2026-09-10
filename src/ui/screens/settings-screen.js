@@ -1,6 +1,5 @@
-import { LIGHT_SQUARE_COLORS, DARK_SQUARE_COLORS, AMBIENT_TRACKS } from '../../session/settings.js';
+import { LIGHT_SQUARE_COLORS, DARK_SQUARE_COLORS } from '../../session/settings.js';
 import { contrastRatio, pieceFillFromSquareColor } from '../color-utils.js';
-import { AmbientPlayer } from '../ambient-player.js';
 
 function fieldRow(labelText, inputEl) {
   const div = document.createElement('div');
@@ -15,7 +14,6 @@ function fieldRow(labelText, inputEl) {
 export function renderSettingsScreen(container, ctx) {
   const { sound, navigate, saveSettings } = ctx;
   let settings = structuredClone(ctx.settings);
-  const ambientPreview = new AmbientPlayer();
 
   function persist() {
     saveSettings(structuredClone(settings));
@@ -111,68 +109,10 @@ export function renderSettingsScreen(container, ctx) {
     input.addEventListener('input', () => {
       settings[key] = Number(input.value);
       persist();
-      // Se si sta ascoltando un'anteprima, il volume cambia mentre si trascina.
-      if (key === 'volumeAmbient') ambientPreview.setVolume(settings.volumeAmbient);
     });
     audioFs.appendChild(fieldRow(text, input));
   });
   container.appendChild(audioFs);
-
-  // --- Musica di sottofondo ---
-  const ambientFs = document.createElement('fieldset');
-  ambientFs.innerHTML = '<legend>Musica di sottofondo</legend>';
-  const ambientSelect = document.createElement('select');
-  Object.entries(AMBIENT_TRACKS).forEach(([key, track]) => {
-    const opt = document.createElement('option');
-    opt.value = key;
-    opt.textContent = track.label;
-    if (key === settings.ambientTrack) opt.selected = true;
-    ambientSelect.appendChild(opt);
-  });
-  ambientSelect.addEventListener('change', () => {
-    settings.ambientTrack = ambientSelect.value;
-    persist();
-  });
-  ambientFs.appendChild(fieldRow('Traccia predefinita (riprodotta in loop durante la partita)', ambientSelect));
-
-  // Anteprima: un pulsante ascolta/ferma per ogni traccia, per sentirle prima
-  // di sceglierne una. Ne suona una alla volta, al volume impostato sopra.
-  const previewButtons = new Map();
-  let previewKey = null;
-
-  function updatePreviewButtons() {
-    previewButtons.forEach((btn, key) => {
-      const playing = previewKey === key;
-      btn.textContent = `${playing ? 'Ferma' : 'Ascolta'} ${AMBIENT_TRACKS[key].label}`;
-      btn.setAttribute('aria-pressed', String(playing));
-    });
-  }
-
-  function togglePreview(key) {
-    if (previewKey === key) {
-      ambientPreview.stop();
-      previewKey = null;
-    } else {
-      ambientPreview.play(key, settings.volumeAmbient);
-      previewKey = key;
-    }
-    updatePreviewButtons();
-  }
-
-  const previewRow = document.createElement('div');
-  previewRow.className = 'preview-row';
-  Object.entries(AMBIENT_TRACKS)
-    .filter(([, track]) => track.file)
-    .forEach(([key]) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.addEventListener('click', () => togglePreview(key));
-      previewButtons.set(key, btn);
-      previewRow.appendChild(btn);
-    });
-  updatePreviewButtons();
-  ambientFs.appendChild(previewRow);
-  container.appendChild(ambientFs);
 
   // --- Grafica scacchiera ---
   const boardFs = document.createElement('fieldset');
@@ -251,18 +191,6 @@ export function renderSettingsScreen(container, ctx) {
   langFs.appendChild(fieldRow('Lingua (altre in arrivo)', langSelect));
   container.appendChild(langFs);
 
-  // --- Set pezzi preferito ---
-  const favSetFs = document.createElement('fieldset');
-  favSetFs.innerHTML = '<legend>Set pezzi preferito di default</legend>';
-  const favLabel = document.createElement('label');
-  const favRadio = document.createElement('input');
-  favRadio.type = 'radio';
-  favRadio.checked = true;
-  favRadio.disabled = true;
-  favLabel.append(favRadio, ' Classico (unico disponibile in v1)');
-  favSetFs.appendChild(favLabel);
-  container.appendChild(favSetFs);
-
   // --- PGN ---
   const pgnFs = document.createElement('fieldset');
   pgnFs.innerHTML = '<legend>PGN — metadati opzionali da includere</legend>';
@@ -305,10 +233,4 @@ export function renderSettingsScreen(container, ctx) {
     <p>Grazie a Lichess per gli asset grafici dei pezzi (licenza GPL).</p>
   `;
   container.appendChild(infoFs);
-
-  return {
-    destroy() {
-      ambientPreview.stop();
-    },
-  };
 }

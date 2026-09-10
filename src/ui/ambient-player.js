@@ -6,6 +6,21 @@ import { AMBIENT_TRACKS } from '../session/settings.js';
 
 const AMBIENT_BASE = 'assets/sounds/ambient/';
 
+// L'orecchio percepisce il volume in scala logaritmica, ma <audio>.volume è
+// un'ampiezza lineare: usando lo slider (0-1) direttamente come volume, gran
+// parte della corsa suona quasi invariata e solo l'ultimo tratto vicino allo
+// zero si sente davvero abbassarsi. Per far sì che abbassare lo slider
+// abbassi davvero quel che si sente, mappiamo lo slider su una curva "audio
+// taper": lineare in dB (range di TAPER_RANGE_DB) invece che in ampiezza.
+const TAPER_RANGE_DB = 40;
+
+function perceptualGain(value) {
+  const v = Math.max(0, Math.min(1, value));
+  if (v <= 0) return 0;
+  const db = TAPER_RANGE_DB * (v - 1);
+  return Math.pow(10, db / 20);
+}
+
 export class AmbientPlayer {
   constructor() {
     this.audio = null;
@@ -19,7 +34,7 @@ export class AmbientPlayer {
     try {
       this.audio = new Audio(AMBIENT_BASE + track.file);
       this.audio.loop = true;
-      this.audio.volume = Math.max(0, Math.min(1, volume));
+      this.audio.volume = perceptualGain(volume);
       this.audio.play().catch(() => {});
     } catch {
       // riproduzione audio non disponibile: non blocca la partita
@@ -28,7 +43,7 @@ export class AmbientPlayer {
   }
 
   setVolume(volume) {
-    if (this.audio) this.audio.volume = Math.max(0, Math.min(1, volume));
+    if (this.audio) this.audio.volume = perceptualGain(volume);
   }
 
   stop() {

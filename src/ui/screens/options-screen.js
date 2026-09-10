@@ -1,6 +1,7 @@
 import { loadLastConfig, saveLastConfig } from '../../session/options.js';
 import { eloForLevel } from '../../engine/engine.js';
 import { AMBIENT_TRACKS } from '../../session/settings.js';
+import { AmbientPlayer } from '../ambient-player.js';
 
 const MINUTE_OPTIONS = [10, 15, 20, 30, 45, 60, 90, 120];
 const INCREMENT_OPTIONS = [0, 2, 3, 5, 7, 10, 15, 20, 30];
@@ -29,8 +30,9 @@ function resolveColor(choice) {
 }
 
 export function renderOptionsScreen(container, ctx) {
-  const { sound, navigate } = ctx;
+  const { sound, navigate, settings } = ctx;
   const config = loadLastConfig();
+  const ambientPreview = new AmbientPlayer();
 
   container.innerHTML = '';
 
@@ -159,26 +161,66 @@ export function renderOptionsScreen(container, ctx) {
   });
   form.appendChild(setFieldset);
 
-  // Musica di sottofondo (per questa partita)
+  // Musica di sottofondo
+  const ambientFieldset = document.createElement('fieldset');
+  const ambientLegend = document.createElement('legend');
+  ambientLegend.textContent = 'Musica di sottofondo';
+  ambientFieldset.appendChild(ambientLegend);
+
   const ambientDiv = document.createElement('div');
   ambientDiv.className = 'field';
   const ambientLabel = document.createElement('label');
-  ambientLabel.textContent = 'Musica di sottofondo per questa partita';
+  ambientLabel.textContent = 'Traccia (riprodotta in loop durante la partita)';
   const ambientSelect = document.createElement('select');
-  const defaultOpt = document.createElement('option');
-  defaultOpt.value = 'predefinita';
-  defaultOpt.textContent = 'Come da Impostazioni';
-  ambientSelect.appendChild(defaultOpt);
   Object.entries(AMBIENT_TRACKS).forEach(([key, track]) => {
     const opt = document.createElement('option');
     opt.value = key;
     opt.textContent = track.label;
     ambientSelect.appendChild(opt);
   });
-  ambientSelect.value = config.ambientTrack || 'predefinita';
+  ambientSelect.value = config.ambientTrack || 'nessuna';
   ambientLabel.appendChild(ambientSelect);
   ambientDiv.appendChild(ambientLabel);
-  form.appendChild(ambientDiv);
+  ambientFieldset.appendChild(ambientDiv);
+
+  // Anteprima: un pulsante ascolta/ferma per ogni traccia, per sentirle prima
+  // di sceglierne una. Ne suona una alla volta, al volume impostato in Extra.
+  const previewButtons = new Map();
+  let previewKey = null;
+
+  function updatePreviewButtons() {
+    previewButtons.forEach((btn, key) => {
+      const playing = previewKey === key;
+      btn.textContent = `${playing ? 'Ferma' : 'Ascolta'} ${AMBIENT_TRACKS[key].label}`;
+      btn.setAttribute('aria-pressed', String(playing));
+    });
+  }
+
+  function togglePreview(key) {
+    if (previewKey === key) {
+      ambientPreview.stop();
+      previewKey = null;
+    } else {
+      ambientPreview.play(key, settings.volumeAmbient);
+      previewKey = key;
+    }
+    updatePreviewButtons();
+  }
+
+  const previewRow = document.createElement('div');
+  previewRow.className = 'preview-row';
+  Object.entries(AMBIENT_TRACKS)
+    .filter(([, track]) => track.file)
+    .forEach(([key]) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.addEventListener('click', () => togglePreview(key));
+      previewButtons.set(key, btn);
+      previewRow.appendChild(btn);
+    });
+  updatePreviewButtons();
+  ambientFieldset.appendChild(previewRow);
+  form.appendChild(ambientFieldset);
 
   const submitBtn = document.createElement('button');
   submitBtn.type = 'submit';
@@ -203,4 +245,10 @@ export function renderOptionsScreen(container, ctx) {
   });
 
   container.appendChild(form);
+
+  return {
+    destroy() {
+      ambientPreview.stop();
+    },
+  };
 }
