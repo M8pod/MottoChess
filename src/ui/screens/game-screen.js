@@ -14,6 +14,7 @@ import {
   DARK_SQUARE_COLORS,
   PIECE_SET_SQUARE_COLORS,
 } from '../../session/settings.js';
+import { factionsByColor } from '../../themes/factions.js';
 import { pieceFillFromSquareColor } from '../color-utils.js';
 import { BoardView } from '../board.js';
 import { ChessClock } from '../clock.js';
@@ -30,7 +31,10 @@ function formatClock(ms) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-// session: { color: 'w'|'b', timeEnabled, minutes, incrementSec, level, pieceSet }
+// session: { color: 'w'|'b', timeEnabled, minutes, incrementSec, level,
+//            pieceSet, faction }
+// faction è la fazione impersonata dal giocatore nei set che la prevedono
+// (già sciolta, mai 'casuale'); negli altri set è null/assente.
 export function renderGameScreen(container, ctx, session) {
   const { settings, sound, narrator, navigate } = ctx;
 
@@ -106,6 +110,23 @@ export function renderGameScreen(container, ctx, session) {
   const ambient = new AmbientPlayer();
   const ambientTrackKey = session.ambientTrack || 'nessuna';
 
+  // Chi occupa quale colore in questa partita, nei set a fazioni: { w, b }
+  // (null per gli altri set). Calcolata una volta sola: vale fino alla fine.
+  const factions = factionsByColor(session.pieceSet, {
+    faction: session.faction,
+    color: session.color,
+  });
+  // Contesto passato ai suoni. La fazione è quella di CHI AGISCE — come il
+  // pezzo, che nelle catture è quello che mangia — così un set a fazioni può
+  // far sentire "chi ha mosso" senza che il chiamante sappia come.
+  function soundCtxFor(color, piece) {
+    return {
+      pieceSet: session.pieceSet,
+      piece,
+      faction: factions ? factions[color] : null,
+    };
+  }
+
   function currentColors() {
     // Un set con pezzi a colori fissi (Judo) impone i propri colori casella:
     // quelli scelti in Impostazioni valgono per i set ricolorabili.
@@ -133,6 +154,7 @@ export function renderGameScreen(container, ctx, session) {
       selectedSquare,
       legalTargets: new Set(legalTargetsForSelected.keys()),
       pieceSet: session.pieceSet,
+      factions,
     });
   }
 
@@ -265,7 +287,7 @@ export function renderGameScreen(container, ctx, session) {
       text = 'Hai abbandonato la partita. Hai perso.';
     }
 
-    sound.playGame(soundKey, { pieceSet: session.pieceSet });
+    sound.playGame(soundKey, soundCtxFor(session.color));
     narrator.announce(text);
     autoSaveGame(outcome);
 
@@ -277,7 +299,7 @@ export function renderGameScreen(container, ctx, session) {
     menuBtn.type = 'button';
     menuBtn.textContent = 'Torna al menu';
     menuBtn.addEventListener('click', () => {
-      sound.playGame('session_end', { pieceSet: session.pieceSet });
+      sound.playGame('session_end', soundCtxFor(session.color));
       if (engine) engine.destroy();
       navigate('home');
     });
@@ -310,7 +332,7 @@ export function renderGameScreen(container, ctx, session) {
   }
 
   async function afterMoveApplied(moveObj) {
-    const soundCtx = { pieceSet: session.pieceSet, piece: moveObj.piece };
+    const soundCtx = soundCtxFor(moveObj.color, moveObj.piece);
     if (moveObj.isKingsideCastle() || moveObj.isQueensideCastle()) {
       sound.playGame('castle', soundCtx);
     } else if (moveObj.captured) {
@@ -372,7 +394,7 @@ export function renderGameScreen(container, ctx, session) {
 
   async function onSquareClick(square) {
     if (gameOver || gameCore.turn !== session.color) return;
-    const soundCtx = { pieceSet: session.pieceSet };
+    const soundCtx = soundCtxFor(session.color);
 
     if (!selectedSquare) {
       const moves = gameCore.legalMovesFrom(square);
@@ -533,7 +555,7 @@ export function renderGameScreen(container, ctx, session) {
       const legalMoves = gameCore.allLegalMoves();
       const result = parseMoveText(raw, legalMoves);
       if (!result.ok) {
-        sound.playGame(result.reason === 'invalid' ? 'invalid' : 'illegal', { pieceSet: session.pieceSet });
+        sound.playGame(result.reason === 'invalid' ? 'invalid' : 'illegal', soundCtxFor(session.color));
         return;
       }
       const moveObj = gameCore.applyMove(result.move);
@@ -565,7 +587,7 @@ export function renderGameScreen(container, ctx, session) {
 
   async function start() {
     sound.preloadGameSounds(session.pieceSet);
-    sound.playGame('session_start', { pieceSet: session.pieceSet });
+    sound.playGame('session_start', soundCtxFor(session.color));
     ambient.play(ambientTrackKey, settings.volumeAmbient);
     engine = new Engine();
     await engine.init();

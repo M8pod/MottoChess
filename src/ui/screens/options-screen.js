@@ -1,6 +1,8 @@
 import { loadLastConfig, saveLastConfig } from '../../session/options.js';
 import { eloForLevel } from '../../engine/engine.js';
 import { AMBIENT_TRACKS } from '../../session/settings.js';
+import { factionSet, resolveFaction } from '../../themes/factions.js';
+import { hasPlaceholderArt } from '../../themes/pieces.js';
 import { AmbientPlayer } from '../ambient-player.js';
 
 const MINUTE_OPTIONS = [10, 15, 20, 30, 45, 60, 90, 120];
@@ -119,6 +121,88 @@ export function renderOptionsScreen(container, ctx) {
   levelDiv.appendChild(levelLabel);
   form.appendChild(levelDiv);
 
+  // Set pezzi tematico. Viene prima della fazione e del colore perché è la
+  // scelta che decide se le altre due domande hanno senso: solo un set a
+  // fazioni chiede anche "chi impersoni".
+  const setFieldset = document.createElement('fieldset');
+  const setLegend = document.createElement('legend');
+  setLegend.textContent = 'Set pezzi tematico';
+  setFieldset.appendChild(setLegend);
+  const themes = [
+    { value: 'classico', label: 'Classico', available: true },
+    { value: 'judo', label: 'Judo (judogi bianco e blu)', available: true },
+    { value: 'samurai-ninja', label: 'Samurai vs Ninja (in arrivo)', available: false },
+    { value: 'cani-gatti', label: 'Cani vs Gatti', available: true },
+  ];
+  themes.forEach((theme) => {
+    const label = document.createElement('label');
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'pieceSet';
+    radio.value = theme.value;
+    radio.disabled = !theme.available;
+    radio.checked = theme.value === (config.pieceSet || 'classico');
+    radio.addEventListener('change', renderFactionChoice);
+    // I disegni di un set possono non essere ancora arrivati: il set resta
+    // giocabile con i pezzi classici come segnaposto, ma va detto.
+    const note = theme.available && hasPlaceholderArt(theme.value)
+      ? ' (disegni in arrivo: per ora pezzi classici)'
+      : '';
+    label.append(radio, ` ${theme.label}${note}`);
+    setFieldset.appendChild(label);
+  });
+  // Una configurazione salvata da una versione precedente può nominare un set
+  // che qui non c'è più: senza questo ripiego nessun radio risulterebbe
+  // selezionato e la schermata non si costruirebbe.
+  if (!setFieldset.querySelector('input[name="pieceSet"]:checked')) {
+    setFieldset.querySelector('input[name="pieceSet"][value="classico"]').checked = true;
+  }
+  form.appendChild(setFieldset);
+
+  // Fazione: presente solo per i set che la fanno scegliere (vedi
+  // themes/factions.js), e ricostruita a ogni cambio di set perché legenda e
+  // opzioni appartengono al set.
+  const factionFieldset = document.createElement('fieldset');
+  const factionLegend = document.createElement('legend');
+  factionFieldset.appendChild(factionLegend);
+  form.appendChild(factionFieldset);
+
+  // La scelta vive qui e non solo nei radio: i radio spariscono quando si passa
+  // a un set senza fazioni, e tornando indietro (o avviando la partita) la
+  // preferenza deve essere ancora quella, non "Casuale".
+  let factionChoice = config.faction || 'casuale';
+
+  function renderFactionChoice() {
+    const setName = form.querySelector('input[name="pieceSet"]:checked').value;
+    const factions = factionSet(setName);
+    factionFieldset.hidden = !factions;
+    factionFieldset.querySelectorAll('label').forEach((el) => el.remove());
+    if (!factions) return;
+
+    factionLegend.textContent = factions.legend;
+    const choices = [...factions.options.map((o) => [o.value, o.label]), ['casuale', 'Casuale']];
+    choices.forEach(([value, text]) => {
+      const label = document.createElement('label');
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = 'faction';
+      radio.value = value;
+      radio.checked = value === factionChoice;
+      radio.addEventListener('change', () => {
+        factionChoice = value;
+      });
+      label.append(radio, ` ${text}`);
+      factionFieldset.appendChild(label);
+    });
+    // Preferenza salvata che appartiene a un altro set (o nessuna): ripiego su
+    // "Casuale", così esiste sempre un radio selezionato.
+    if (!factionFieldset.querySelector('input[name="faction"]:checked')) {
+      factionChoice = 'casuale';
+      factionFieldset.querySelector('input[name="faction"][value="casuale"]').checked = true;
+    }
+  }
+  renderFactionChoice();
+
   // Colore
   const colorFieldset = document.createElement('fieldset');
   const colorLegend = document.createElement('legend');
@@ -136,30 +220,6 @@ export function renderOptionsScreen(container, ctx) {
     colorFieldset.appendChild(label);
   });
   form.appendChild(colorFieldset);
-
-  // Set pezzi tematico
-  const setFieldset = document.createElement('fieldset');
-  const setLegend = document.createElement('legend');
-  setLegend.textContent = 'Set pezzi tematico';
-  setFieldset.appendChild(setLegend);
-  const themes = [
-    { value: 'classico', label: 'Classico', available: true },
-    { value: 'judo', label: 'Judo (judogi bianco e blu)', available: true },
-    { value: 'samurai-ninja', label: 'Samurai vs Ninja (in arrivo)', available: false },
-    { value: 'cani-gatti', label: 'Cani vs Gatti (in arrivo)', available: false },
-  ];
-  themes.forEach((theme) => {
-    const label = document.createElement('label');
-    const radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'pieceSet';
-    radio.value = theme.value;
-    radio.disabled = !theme.available;
-    radio.checked = theme.value === (config.pieceSet || 'classico');
-    label.append(radio, ` ${theme.label}`);
-    setFieldset.appendChild(label);
-  });
-  form.appendChild(setFieldset);
 
   // Musica di sottofondo
   const ambientFieldset = document.createElement('fieldset');
@@ -237,11 +297,19 @@ export function renderOptionsScreen(container, ctx) {
       incrementSec: Number(incrementSelect.value),
       level: Number(levelSelect.value),
       pieceSet: form.querySelector('input[name="pieceSet"]:checked').value,
+      faction: factionChoice,
       ambientTrack: ambientSelect.value,
     };
     saveLastConfig(newConfig);
     sound.playUi('navigation');
-    navigate('game', { ...newConfig, color: resolveColor(colorChoice), startedAt: Date.now() });
+    // Colore e fazione vengono sciolti qui una volta sola: da qui in poi la
+    // partita lavora su valori concreti, mai su 'casuale'.
+    navigate('game', {
+      ...newConfig,
+      color: resolveColor(colorChoice),
+      faction: resolveFaction(newConfig.pieceSet, newConfig.faction),
+      startedAt: Date.now(),
+    });
   });
 
   container.appendChild(form);

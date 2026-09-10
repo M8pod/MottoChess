@@ -1,4 +1,5 @@
 import { loadLastConfig } from '../../session/options.js';
+import { resolveFaction } from '../../themes/factions.js';
 import { openDialog } from '../modal.js';
 
 function resolveColor(choice) {
@@ -39,7 +40,14 @@ export function renderHomeScreen(container, ctx) {
     });
     if (!choice) return;
     const lastConfig = loadLastConfig();
-    navigate('game', { ...lastConfig, color: resolveColor(choice), startedAt: Date.now() });
+    // "Gioca subito" chiede solo il colore: la fazione è quella dell'ultima
+    // configurazione salvata in Opzioni partita ('casuale' inclusa).
+    navigate('game', {
+      ...lastConfig,
+      color: resolveColor(choice),
+      faction: resolveFaction(lastConfig.pieceSet, lastConfig.faction),
+      startedAt: Date.now(),
+    });
   });
 
   const optionsBtn = document.createElement('button');

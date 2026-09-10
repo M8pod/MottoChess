@@ -66,6 +66,8 @@ export class BoardView {
   //  pieceColors: { w: '#hex', b: '#hex' }
   //  selectedSquare: string|null
   //  legalTargets: Set<string>
+  //  factions: { w, b } | null — quale fazione occupa ciascun colore, nei set
+  //    a fazioni (vedi themes/factions.js)
   async render(state) {
     const {
       boardMatrix,
@@ -76,6 +78,7 @@ export class BoardView {
       selectedSquare,
       legalTargets,
       pieceSet = 'classico',
+      factions = null,
     } = state;
 
     if (this.orientation !== orientation) this._buildGrid(orientation);
@@ -116,12 +119,13 @@ export class BoardView {
       // L'SVG viene rigenerato solo se il pezzo sulla casella (o il suo
       // colore) è effettivamente cambiato.
       const fillHex = piece ? pieceColors[piece.color] : '';
-      const signature = piece ? `${pieceSet}${piece.color}${piece.type}${fillHex}` : '';
+      const faction = piece && factions ? factions[piece.color] : null;
+      const signature = piece ? `${pieceSet}${faction || ''}${piece.color}${piece.type}${fillHex}` : '';
       if (this.pieceSignatures.get(square) !== signature) {
         btn.replaceChildren();
         if (piece) {
           // eslint-disable-next-line no-await-in-loop
-          btn.appendChild(await createPieceElement(piece.color, piece.type, fillHex, pieceSet));
+          btn.appendChild(await createPieceElement(piece.color, piece.type, fillHex, pieceSet, faction));
         }
         this.pieceSignatures.set(square, signature);
       }

@@ -90,8 +90,9 @@ Tre notifiche indipendenti, ciascuna attivabile/disattivabile singolarmente da I
 1. **Tempo**: on/off; se on, minuti `[10,15,20,30,45,60,90,120]` + incremento secondi `[0,2,3,5,7,10,15,20,30]`, due select indipendenti (replicare comportamento stepper/picker nativo in HTML accessibile, dato che è PWA non nativa)
 2. **Livello Stockfish 1–20**, vedi tabella sotto
 3. **Colore**: bianco / nero / casuale — scelta OBBLIGATORIA a ogni nuova partita, anche da "Gioca subito" (unico campo escluso dal riuso automatico dell'ultima configurazione, dato che determina l'orientamento scacchiera). "Gioca subito" mostra quindi solo questa scelta (es. 3 pulsanti/select rapidi) e riusa tempo/livello/set pezzi dell'ultima sessione.
-4. **Set pezzi tematico**: v1 = solo Classico (vedi "Scope v1"); Samurai vs Ninja, Judo, Cani vs Gatti pianificati per dopo
-5. Colori scacchiera e set pezzi preferito di default → gestiti in Impostazioni, non qui
+4. **Set pezzi tematico**: Classico, Judo, Cani vs Gatti (quest'ultimo coi pezzi classici come segnaposto finché i disegni non arrivano); Samurai vs Ninja pianificato per dopo
+5. **Fazione**: presente solo per i set "a fazioni" che la fanno scegliere — oggi solo Cani vs Gatti: gatti / cani / casuale. Indipendente dal colore, e insieme al colore determina chi gioca col bianco (chi sceglie gatti e nero avrà gatti neri contro cani bianchi). A differenza del colore viene ricordata fra le partite: è una preferenza estetica, non qualcosa che cambia l'orientamento della scacchiera. Nell'ordine della schermata viene dopo il set (che decide se la domanda ha senso) e prima del colore. Dettagli in `motto-chess-set-cani-gatti.md` sezione 1, meccanica in `themes/factions.js`
+6. Colori scacchiera e set pezzi preferito di default → gestiti in Impostazioni, non qui
 
 ### Tabella livelli Stockfish (UCI_Elo)
 
@@ -150,9 +151,10 @@ bianchi = judogi bianco; pezzi "neri" (standard scacchistico) = judogi blu (visi
 blu, notazione resta nera). Caselle fisse avorio/navy, non ricolorabili (vedi
 `motto-chess-set-judo.md` sezione 3 per il perché non sono bianco/blu puri).
 
-### Set Cani vs Gatti (a fazioni, granularità minima)
-- Un suono generico "cane" per tutti i pezzi cani, un suono generico "gatto" per tutti i pezzi gatti (movimento e cattura)
-- Sigle apertura/chiusura distinte per fazione
+### Set Cani vs Gatti (a fazioni, granularità minima) — dettagli in `motto-chess-set-cani-gatti.md` sezione 8
+- Un suono generico "cane" per tutti i pezzi cani, un suono generico "gatto" per tutti i pezzi gatti (movimento e cattura). Sui movimenti si sentono le zampe, non le voci: miagolio e abbaio sono riservati alle catture, che sono rare
+- Sigle apertura/chiusura distinte per fazione, quella del giocatore
+- Nove file in tutto. Tutto il resto (scacco, dinieghi, esiti) resta al set default neutro: nessuna deroga al principio generale qui sotto
 
 ### Set Samurai vs Ninja (a fazioni, granularità mista — da definire in fase di produzione)
 - Movimento personalizzato per singolo tipo di pezzo × fazione (12 suoni)
@@ -187,7 +189,7 @@ Suoni "di sistema" (mossa illegale, scacco, scacco matto, esiti fine partita) re
 
 ## Scope v1
 
-**v1 include il set pezzi Classico** (SVG Cburnett da Lichess) con il set sonoro default, **e il set Judo** (illustrazioni raster + set sonoro proprio), entrambi completi e selezionabili. Gli altri 2 set tematici (Samurai vs Ninja, Cani vs Gatti) non sono selezionabili in v1: assets grafici e sonori non ancora pronti (vedi sotto). L'architettura a moduli disaccoppiati (`themes/i18n-voice`, `sound-manager` con `GAME_SETS`, ecc.) resta comunque predisposta per aggiungerli senza refactoring.
+**v1 include il set pezzi Classico** (SVG Cburnett da Lichess) con il set sonoro default, **e il set Judo** (illustrazioni raster + set sonoro proprio), entrambi completi e selezionabili. **Cani vs Gatti** è selezionabile e giocabile dall'11 settembre 2026 con la meccanica delle fazioni completa, ma con pezzi classici come segnaposto e suoni del set default: mancano i suoi dodici disegni e i suoi nove suoni (vedi `motto-chess-set-cani-gatti.md`). Samurai vs Ninja non è selezionabile: assets grafici e sonori non ancora pronti (vedi sotto). L'architettura a moduli disaccoppiati (`themes/i18n-voice`, `themes/factions`, `sound-manager` con `GAME_SETS`, ecc.) resta comunque predisposta per aggiungerli senza refactoring.
 
 ## Asset pronti
 
@@ -199,7 +201,6 @@ Suoni "di sistema" (mossa illegale, scacco, scacco matto, esiti fine partita) re
 ## Da produrre (asset non ancora pronti)
 
 - Set sonoro e grafico Samurai vs Ninja
-- Set sonoro e grafico Cani vs Gatti
-- Set sonoro Samurai vs Ninja
-- Illustrazioni pezzi Judo, Cani vs Gatti, Samurai vs Ninja (Gemini)
+- **Cani vs Gatti**: 12 illustrazioni (prompt Gemini pronti, `motto-chess-set-cani-gatti.md` sezioni 6-7) e 9 suoni (prompt pronti, sezione 8). La meccanica delle fazioni è già fatta e in uso
+- Illustrazioni pezzi Samurai vs Ninja (Gemini)
 - Set sonoro UI/menu completo (estetica casinò) — al momento solo `assets/sounds/ui-menu/chess_ui_navigation.wav`
