@@ -73,18 +73,27 @@ export function renderGameScreen(container, ctx, session) {
 
   // Il campo comandi è l'ULTIMO elemento della schermata: così, se il focus di
   // VoiceOver si perde, si ritrova sempre in fondo alla pagina.
-  const form = document.createElement('form');
-  form.className = 'move-form';
+  //
+  // Volutamente NON è un <form>: su iPhone, con tastiera Bluetooth, l'Invio
+  // dentro un form innesca la "implicit submission" di WebKit, che come
+  // effetto collaterale toglie il focus al campo (è il meccanismo che chiude
+  // la tastiera a schermo). Con VoiceOver attivo il cursore resta quindi senza
+  // elemento e salta in cima allo schermo, sulla barra di stato / Dynamic
+  // Island. Senza form quel percorso non può proprio scattare: l'Invio lo
+  // gestiamo noi da 'keydown' e il focus non si muove mai dal campo.
+  const commandBar = document.createElement('div');
+  commandBar.className = 'move-form';
   const textInput = document.createElement('input');
   textInput.type = 'text';
   textInput.autocomplete = 'off';
+  textInput.enterKeyHint = 'send';
   textInput.setAttribute('aria-label', 'Comando mossa testuale o comando informativo (aiuto per l\'elenco)');
   textInput.placeholder = 'es. e4, Empoli 4, aiuto...';
   const submitBtn = document.createElement('button');
-  submitBtn.type = 'submit';
+  submitBtn.type = 'button';
   submitBtn.textContent = 'Invia';
-  form.append(textInput, submitBtn);
-  container.appendChild(form);
+  commandBar.append(textInput, submitBtn);
+  container.appendChild(commandBar);
 
   const gameCore = new GameCore();
   let selectedSquare = null;
@@ -130,7 +139,7 @@ export function renderGameScreen(container, ctx, session) {
   // Il campo testo resta sempre abilitato: i comandi informativi (l, c,
   // s+numero/lettera, aiuto) devono funzionare anche fuori dal proprio turno
   // e a partita finita. Solo l'invio di una mossa vera è vincolato al turno
-  // (vedi handler 'submit').
+  // (vedi submitCurrentInput).
   //
   // Il focus torna al campo comandi dopo ogni invio, ma NON viene mai tolto
   // alla scacchiera (se l'utente la sta esplorando al tocco o con VoiceOver,
@@ -138,12 +147,37 @@ export function renderGameScreen(container, ctx, session) {
   // né a un dialogo aperto (es. "aiuto"): lì il focus lo gestisce il <dialog>
   // nativo, compreso il ripristino sul campo comandi alla chiusura.
   function focusInput() {
+    if (!textInput.isConnected) return;
     const active = document.activeElement;
     if (active instanceof HTMLElement && active.closest('.board-container')) return;
     if (active instanceof HTMLElement && active.closest('dialog')) return;
     if (active === textInput) return;
     textInput.focus();
   }
+
+  // Rete di sicurezza per iOS: se subito dopo un invio (o dopo la mossa del
+  // motore) il campo perde il focus senza che questo finisca su un altro
+  // elemento — è quello che fa il sistema quando decide di "chiudere" la
+  // tastiera — VoiceOver resta senza cursore e risale in cima allo schermo.
+  // La finestra è volutamente breve e si arma solo attorno alle mosse: fuori
+  // da quei momenti l'utente è libero di uscire dal campo come vuole.
+  const FOCUS_RESTORE_WINDOW_MS = 1500;
+  let restoreFocusUntil = 0;
+
+  function armFocusRestore() {
+    restoreFocusUntil = Date.now() + FOCUS_RESTORE_WINDOW_MS;
+  }
+
+  textInput.addEventListener('focusout', (e) => {
+    if (Date.now() > restoreFocusUntil) return;
+    if (e.relatedTarget) return; // il focus è andato su un altro elemento: è una scelta dell'utente
+    setTimeout(() => {
+      if (Date.now() > restoreFocusUntil) return;
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      focusInput();
+    }, 0);
+  });
 
   function updateClockDisplay(remaining) {
     if (!session.timeEnabled) return;
@@ -310,6 +344,9 @@ export function renderGameScreen(container, ctx, session) {
 
     // Rimesso prima della mossa del motore: durante la sua riflessione il
     // campo comandi resta pronto e i comandi informativi restano usabili.
+    // Vale anche per la mossa del motore stesso: appena la scacchiera è
+    // aggiornata, il campo deve essere (e restare) il posto dov'è il cursore.
+    armFocusRestore();
     focusInput();
 
     if (gameCore.turn !== session.color) {
@@ -469,8 +506,8 @@ export function renderGameScreen(container, ctx, session) {
   // su quel pulsante, quindi lo riportiamo qui sul campo comandi in ogni
   // caso (mossa valida, comando, mossa illegale, fuori turno, partita
   // finita...). focusInput() rispetta comunque scacchiera e dialoghi aperti.
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
+  async function submitCurrentInput() {
+    armFocusRestore();
     const raw = textInput.value;
     textInput.value = '';
     try {
@@ -502,8 +539,21 @@ export function renderGameScreen(container, ctx, session) {
       const moveObj = gameCore.applyMove(result.move);
       await afterMoveApplied(moveObj);
     } finally {
+      armFocusRestore();
       focusInput();
     }
+  }
+
+  // Invio da tastiera (fisica o a schermo): lo intercettiamo qui e blocchiamo
+  // il comportamento predefinito, così il campo non perde mai il focus.
+  textInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    e.preventDefault();
+    submitCurrentInput();
+  });
+
+  submitBtn.addEventListener('click', () => {
+    submitCurrentInput();
   });
 
   resignBtn.addEventListener('click', async () => {

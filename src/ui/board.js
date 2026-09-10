@@ -18,6 +18,7 @@ export class BoardView {
     this.buttons = new Map(); // square -> <button>
     this.pieceSignatures = new Map(); // square -> descrizione del pezzo disegnato
     this.ariaLabels = new Map(); // square -> ultimo aria-label scritto
+    this.squareColors = new Map(); // square -> ultimo colore di sfondo scritto
     this.orientation = null;
   }
 
@@ -30,6 +31,7 @@ export class BoardView {
     this.buttons.clear();
     this.pieceSignatures.clear();
     this.ariaLabels.clear();
+    this.squareColors.clear();
     this.container.setAttribute('role', 'grid');
     this.container.setAttribute('aria-label', 'Scacchiera');
 
@@ -89,7 +91,14 @@ export class BoardView {
       const piece = pieceBySquare.get(square) || null;
       const selected = selectedSquare === square;
 
-      btn.style.backgroundColor = isDarkSquare(square) ? darkHex : lightHex;
+      // Anche riscrivere lo stile inline con lo stesso valore è una mutazione
+      // dell'attributo: come per l'aria-label qui sotto, si scrive solo se il
+      // colore è davvero cambiato (cioè quasi mai durante una partita).
+      const bgHex = isDarkSquare(square) ? darkHex : lightHex;
+      if (this.squareColors.get(square) !== bgHex) {
+        btn.style.backgroundColor = bgHex;
+        this.squareColors.set(square, bgHex);
+      }
       // Riscrivere l'aria-label anche quando non cambia genera comunque una
       // mutazione dell'accessibility tree per tutte le 64 caselle a ogni
       // mossa: con VoiceOver e tastiera Bluetooth esterna, dopo l'attesa del
