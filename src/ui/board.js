@@ -17,6 +17,7 @@ export class BoardView {
     this.onSquareClick = onSquareClick;
     this.buttons = new Map(); // square -> <button>
     this.pieceSignatures = new Map(); // square -> descrizione del pezzo disegnato
+    this.ariaLabels = new Map(); // square -> ultimo aria-label scritto
     this.orientation = null;
   }
 
@@ -28,6 +29,7 @@ export class BoardView {
     this.container.innerHTML = '';
     this.buttons.clear();
     this.pieceSignatures.clear();
+    this.ariaLabels.clear();
     this.container.setAttribute('role', 'grid');
     this.container.setAttribute('aria-label', 'Scacchiera');
 
@@ -88,7 +90,17 @@ export class BoardView {
       const selected = selectedSquare === square;
 
       btn.style.backgroundColor = isDarkSquare(square) ? darkHex : lightHex;
-      btn.setAttribute('aria-label', describeSquare(square, piece, { selected }));
+      // Riscrivere l'aria-label anche quando non cambia genera comunque una
+      // mutazione dell'accessibility tree per tutte le 64 caselle a ogni
+      // mossa: con VoiceOver e tastiera Bluetooth esterna, dopo l'attesa del
+      // motore questo può far perdere il cursore (torna sull'interfaccia di
+      // sistema, es. la barra di stato). Si scrive quindi solo se il testo è
+      // davvero cambiato.
+      const ariaLabel = describeSquare(square, piece, { selected });
+      if (this.ariaLabels.get(square) !== ariaLabel) {
+        btn.setAttribute('aria-label', ariaLabel);
+        this.ariaLabels.set(square, ariaLabel);
+      }
       btn.classList.toggle('selected', selected);
       btn.classList.toggle('legal-target', Boolean(legalTargets && legalTargets.has(square)));
 
