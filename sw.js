@@ -14,7 +14,7 @@
 //    cache-first, non cambiano mai senza cambiare anche il nome della cache.
 //
 // Quando si aggiorna una libreria in vendor/, incrementare CACHE_NAME.
-const CACHE_NAME = 'motto-chess-v3';
+const CACHE_NAME = 'motto-chess-v4';
 const PRECACHE = ['./', './index.html', './manifest.webmanifest'];
 
 function strategyFor(request, url) {
@@ -32,7 +32,11 @@ function isCacheable(response) {
 async function networkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
   try {
-    const response = await fetch(request);
+    // cache: 'no-cache' = chiedi sempre al server se il file è cambiato
+    // (risposta leggera se non lo è). Senza, la cache HTTP del browser
+    // (10 minuti su GitHub Pages) poteva servire alcuni moduli vecchi accanto
+    // a moduli nuovi subito dopo un aggiornamento: l'app non partiva più.
+    const response = await fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' });
     if (isCacheable(response)) cache.put(request, response.clone());
     return response;
   } catch (err) {

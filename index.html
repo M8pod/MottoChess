@@ -15,23 +15,69 @@
   <div id="narrator-live" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
   <script type="module" src="src/main.js"></script>
   <script>
-    // Rete di sicurezza: se il modulo principale non parte (es. errore di
-    // sintassi), la pagina resta vuota e completamente muta per lo screen
-    // reader. Meglio un messaggio annunciabile che una schermata morta.
-    window.addEventListener('load', function () {
-      setTimeout(function () {
-        var main = document.getElementById('app-main');
-        if (main && main.childElementCount === 0) {
-          var h1 = document.createElement('h1');
-          h1.textContent = 'Motto Chess';
-          var p = document.createElement('p');
-          p.setAttribute('role', 'alert');
-          p.textContent =
-            "Errore di avvio: l'applicazione non si è caricata correttamente. Chiudi e riapri l'app per scaricare l'ultima versione.";
-          main.append(h1, p);
+    // Rete di sicurezza: se il modulo principale non parte (errore di
+    // caricamento, o file vecchi e nuovi mescolati dopo un aggiornamento), la
+    // pagina resterebbe vuota e muta per lo screen reader. main.js segnala
+    // l'avvio riuscito con window.__mottoStarted. Il messaggio compare solo se
+    // c'è stato davvero un errore, o dopo 15 secondi senza avvio: prima
+    // compariva dopo 3 secondi fissi, anche su un telefono solo un po' lento.
+    (function () {
+      var failed = false;
+      // Contano solo gli errori di codice (non, per esempio, un'immagine
+      // mancante): ErrorEvent, o un <script> che non si carica.
+      window.addEventListener('error', function (e) {
+        var isScript = e.target && e.target.tagName === 'SCRIPT';
+        if (!window.__mottoStarted && (isScript || e instanceof ErrorEvent)) failed = true;
+      }, true);
+      window.addEventListener('unhandledrejection', function () {
+        if (!window.__mottoStarted) failed = true;
+      });
+
+      // "Riprova": svuota la memoria dell'app (service worker e cache) e
+      // ricarica, così si scarica da capo la versione più recente.
+      function cleanReload() {
+        var steps = [];
+        if ('serviceWorker' in navigator) {
+          steps.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
+            return Promise.all(regs.map(function (r) { return r.unregister(); }));
+          }));
         }
-      }, 3000);
-    });
+        if (window.caches) {
+          steps.push(caches.keys().then(function (keys) {
+            return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+          }));
+        }
+        Promise.all(steps).catch(function () {}).then(function () {
+          location.reload();
+        });
+      }
+
+      function showError() {
+        var main = document.getElementById('app-main');
+        if (!main || window.__mottoStarted || main.childElementCount > 0) return;
+        var h1 = document.createElement('h1');
+        h1.textContent = 'Motto Chess';
+        var p = document.createElement('p');
+        p.setAttribute('role', 'alert');
+        p.textContent =
+          "Errore di avvio: l'applicazione non si è caricata correttamente. Premi Riprova per scaricare di nuovo l'ultima versione.";
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'big-button';
+        btn.textContent = 'Riprova';
+        btn.addEventListener('click', cleanReload);
+        main.append(h1, p, btn);
+      }
+
+      var waited = 0;
+      function check() {
+        if (window.__mottoStarted) return;
+        waited += 1;
+        if ((failed && waited >= 2) || waited >= 15) showError();
+        else setTimeout(check, 1000);
+      }
+      window.addEventListener('load', function () { setTimeout(check, 1000); });
+    })();
   </script>
 </body>
 </html>
