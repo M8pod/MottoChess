@@ -1,6 +1,7 @@
 // ui/board: rendering della scacchiera grafica (dual-mode: tocco + VoiceOver).
 import { describeSquare } from '../themes/i18n-voice.js';
 import { createPieceElement } from '../themes/pieces.js';
+import { t } from '../i18n/i18n.js';
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
@@ -33,7 +34,7 @@ export class BoardView {
     this.ariaLabels.clear();
     this.squareColors.clear();
     this.container.setAttribute('role', 'grid');
-    this.container.setAttribute('aria-label', 'Scacchiera');
+    this.container.setAttribute('aria-label', t('Scacchiera'));
 
     const ranks = orientation === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7, 8];
     const files = orientation === 'w' ? FILES : [...FILES].reverse();

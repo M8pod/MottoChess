@@ -5,6 +5,8 @@
 // aria-describedby: all'apertura gli screen reader (VoiceOver, TalkBack,
 // NVDA, JAWS) leggono subito domanda e spiegazione, non solo il pulsante che
 // riceve il focus.
+import { t } from '../i18n/i18n.js';
+
 let dialogCounter = 0;
 
 // describeBody: false per i dialoghi con contenuto lungo (l'aiuto), che si
@@ -65,15 +67,15 @@ export function openDialog({ titleText, bodyNode, buttons, describeBody = true }
 
 export async function askPromotionChoice() {
   const body = document.createElement('p');
-  body.textContent = 'Scegli il pezzo per la promozione del pedone.';
+  body.textContent = t('Scegli il pezzo per la promozione del pedone.');
   return openDialog({
-    titleText: 'Promozione',
+    titleText: t('Promozione'),
     bodyNode: body,
     buttons: [
-      { label: 'Dama', value: 'q', primary: true },
-      { label: 'Torre', value: 'r' },
-      { label: 'Alfiere', value: 'b' },
-      { label: 'Cavallo', value: 'n' },
+      { label: t('Dama'), value: 'q', primary: true },
+      { label: t('Torre'), value: 'r' },
+      { label: t('Alfiere'), value: 'b' },
+      { label: t('Cavallo'), value: 'n' },
     ],
   });
 }
@@ -81,7 +83,7 @@ export async function askPromotionChoice() {
 // Conferma sì/no generica. Il focus parte sempre sul pulsante che NON fa
 // nulla: un doppio tocco distratto non deve mai confermare un'azione
 // irreversibile.
-export async function askConfirmation({ titleText, bodyText, confirmLabel = 'Sì', cancelLabel = 'No' }) {
+export async function askConfirmation({ titleText, bodyText, confirmLabel = t('Sì'), cancelLabel = t('No') }) {
   let bodyNode = null;
   if (bodyText) {
     bodyNode = document.createElement('p');
@@ -108,6 +110,11 @@ const HELP_COMMANDS = [
   ['c', "annuncia il tempo residuo, tuo e dell'avversario"],
   ['s + numero (es. s4)', 'annuncia tutti i pezzi sulla traversa 4, comprese le caselle vuote'],
   ['s + lettera (es. se)', 'annuncia tutti i pezzi sulla colonna Empoli, comprese le caselle vuote'],
+  ['p + lettera del pezzo (es. p b)', 'dove sono i pezzi di quel tipo: p b tutti gli alfieri, p n i cavalli, p r le torri, p q le dame, p k i re, p p i pedoni. Si può scrivere anche il nome: p torri'],
+  ['p + pezzo + colore (es. p b b, p b n)', 'solo i pezzi bianchi (b) o neri (n): p b b alfieri bianchi, p b n alfieri neri. Anche a parole: p cavalli neri'],
+  ['v', 'cambia lo stile della narrazione: compatto (N f3) o espanso, più semplice (cavallo in Firenze 3)'],
+  ['m', 'accende o spegne la musica di sottofondo'],
+  ['m+ / m-', 'alza o abbassa il volume della sola musica'],
   ['aiuto', 'apre questo elenco comandi'],
   ['diagnosi', 'annuncia gli ultimi spostamenti del cursore fuori dal campo comandi (utile per segnalare problemi)'],
   ['Scacchiera con tastiera', 'frecce per spostarsi fra le caselle, Invio o Spazio per selezionare e muovere'],
@@ -117,27 +124,27 @@ const HELP_COMMANDS = [
 export async function showHelpDialog() {
   const body = document.createElement('div');
   const intro = document.createElement('p');
-  intro.textContent = 'Comandi disponibili nel campo di testo durante la partita:';
+  intro.textContent = t('Comandi disponibili nel campo di testo durante la partita:');
   body.appendChild(intro);
 
   const list = document.createElement('ul');
   HELP_COMMANDS.forEach(([cmd, desc]) => {
     const li = document.createElement('li');
     const strong = document.createElement('strong');
-    strong.textContent = cmd;
-    li.append(strong, `: ${desc}`);
+    strong.textContent = t(cmd);
+    li.append(strong, `: ${t(desc)}`);
     list.appendChild(li);
   });
   body.appendChild(list);
 
   return openDialog({
-    titleText: 'Comandi disponibili',
+    titleText: t('Comandi disponibili'),
     bodyNode: body,
     describeBody: false,
-    buttons: [{ label: 'Chiudi', value: true, primary: true }],
+    buttons: [{ label: t('Chiudi'), value: true, primary: true }],
   });
 }
 
 export async function askResignConfirmation() {
-  return askConfirmation({ titleText: 'Confermi abbandono partita?' });
+  return askConfirmation({ titleText: t('Confermi abbandono partita?') });
 }

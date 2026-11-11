@@ -10,6 +10,8 @@
 //   nominati per FAZIONE (gattiP.png, caniK.png...) e non per colore: gli
 //   stessi dodici disegni servono sia quando i gatti giocano col bianco sia
 //   quando giocano col nero.
+import { t, allTranslations } from '../i18n/i18n.js';
+
 const PIECE_SETS = {
   classico: { base: 'assets/pieces/classico-cburnett/', ext: 'svg', recolorable: true },
   judo: { base: 'assets/pieces/judo/', ext: 'png', recolorable: false },
@@ -34,9 +36,17 @@ export const PIECE_SET_CHOICES = [
   { value: 'samurai-ninja', label: 'Samurai vs Ninja (in arrivo)', available: false },
 ];
 
+// Nome del set nella lingua scelta (le etichette qui sopra sono in italiano
+// e fanno da chiave di traduzione).
 export function pieceSetLabel(value) {
   const choice = PIECE_SET_CHOICES.find((c) => c.value === value);
-  return choice ? choice.label : 'Classico';
+  return t(choice ? choice.label : 'Classico');
+}
+
+// Tutti i nomi di un set, in ogni lingua (per leggere i PGN salvati in
+// un'altra lingua).
+export function pieceSetLabelsAllLanguages(choice) {
+  return allTranslations(choice.label);
 }
 
 export function isAvailablePieceSet(value) {

@@ -4,19 +4,31 @@
 // una di esse.
 import {
   FILE_BY_CITY_LOWER,
-  PIECE_LETTER_BY_NAME_IT,
-  PROMO_LETTER_BY_NAME_IT,
-  PROMO_LETTER_BY_ITALIAN_LETTER,
-  RANK_BY_WORD_IT,
+  PIECE_LETTER_BY_NAME,
+  PROMO_LETTER_BY_NAME,
+  PROMO_LETTERS_BY_LANGUAGE,
+  RANK_BY_WORD,
   stripAccents,
 } from '../themes/i18n-voice.js';
+import { getLanguage } from '../i18n/i18n.js';
 
-const FILLER_WORDS = new Set(['in', 'a', 'ad', 'da', 'la', 'il', 'lo', 'e', 'en', 'passant', 'promuove', 'promozione']);
-const CAPTURE_WORDS = new Set(['mangia', 'cattura', 'prende']);
+// Parole accettate in italiano e in inglese insieme: "cavallo Firenze 3",
+// "knight to Foxtrot 3", "bishop takes Charlie 5", "Echo 8 queen".
+const FILLER_WORDS = new Set([
+  'in', 'a', 'ad', 'da', 'la', 'il', 'lo', 'e', 'en', 'passant', 'promuove', 'promozione',
+  'to', 'on', 'at', 'the', 'and', 'promotes', 'promote', 'promotion', 'equals', 'moves', 'move',
+  'al', 'el', 'de', 'y', 'corona', 'promociona', 'paso',
+  'le', 'du', 'sur', 'va', 'promu', 'prise', 'et',
+]);
+const CAPTURE_WORDS = new Set([
+  'mangia', 'cattura', 'prende', 'takes', 'take', 'captures', 'capture', 'x',
+  'toma', 'come', 'captura', 'por',
+  'prend', 'mange',
+]);
 
 function normalizeWord(w) {
   const word = stripAccents(w.toLowerCase()).trim();
-  return RANK_BY_WORD_IT[word] || word;
+  return RANK_BY_WORD[word] || word;
 }
 
 // "empoli4" (città e numero attaccati) -> ["empoli", "4"]
@@ -29,14 +41,18 @@ function splitCityDigit(word) {
 // destinazione, promozione?, +/# finale ignorato. La promozione accetta le
 // lettere inglesi (e8q, e8=Q) e, solo dopo "=", anche le italiane (e8=D):
 // senza "=" la "c" o la "a" sarebbero ambigue.
-const COMPACT_RE = /^([nbrqk])?([a-h])?([1-8])?(x)?([a-h][1-8])(?:=([qrbndtac])|([qrbn]))?[+#]?$/i;
+const COMPACT_RE = /^([nbrqk])?([a-h])?([1-8])?(x)?([a-h][1-8])(?:=([qrbndtacf])|([qrbn]))?[+#]?$/i;
 const CASTLE_LONG_RE = /^(o-o-o|0-0-0)$/i;
 const CASTLE_SHORT_RE = /^(o-o|0-0)$/i;
 
+const CASTLE_WORDS = ['arrocco', 'castle', 'castles', 'castling', 'enroque', 'enroca', 'roque'];
+const CASTLE_LONG_WORDS = ['lungo', 'long', 'queenside', 'queen', 'largo', 'grand'];
+const CASTLE_SHORT_WORDS = ['corto', 'short', 'kingside', 'king', 'petit'];
+
 function parseCastleWords(words) {
-  if (!words.includes('arrocco')) return null;
-  if (words.includes('lungo')) return { castle: 'q' };
-  if (words.includes('corto')) return { castle: 'k' };
+  if (!words.some((w) => CASTLE_WORDS.includes(w))) return null;
+  if (words.some((w) => CASTLE_LONG_WORDS.includes(w))) return { castle: 'q' };
+  if (words.some((w) => CASTLE_SHORT_WORDS.includes(w))) return { castle: 'k' };
   return null;
 }
 
@@ -76,12 +92,12 @@ function tryParseCitta(rawWords) {
   for (const w of words) {
     if (FILLER_WORDS.has(w) || CAPTURE_WORDS.has(w)) continue;
     if (FILE_BY_CITY_LOWER[w]) seenCity = true;
-    if (!seenCity && !pieceHint && PIECE_LETTER_BY_NAME_IT[w]) {
-      pieceHint = PIECE_LETTER_BY_NAME_IT[w];
+    if (!seenCity && !pieceHint && PIECE_LETTER_BY_NAME[w]) {
+      pieceHint = PIECE_LETTER_BY_NAME[w];
       continue;
     }
-    if (seenCity && PROMO_LETTER_BY_NAME_IT[w]) {
-      promotion = PROMO_LETTER_BY_NAME_IT[w];
+    if (seenCity && PROMO_LETTER_BY_NAME[w]) {
+      promotion = PROMO_LETTER_BY_NAME[w];
       continue;
     }
     remaining.push(w);
@@ -105,8 +121,40 @@ function tryParseCitta(rawWords) {
   return null;
 }
 
-function tryParseCompact(text) {
-  const t = text.trim();
+// Notazione spagnola: R rey, D dama, T torre, A alfil, C caballo. Vale solo
+// con la lettera MAIUSCOLA (in minuscolo "a", "c", "d" sono colonne) e solo
+// con la lingua spagnola, dove "R" è il re e non la torre. Anche "=D" dopo la
+// promozione, come in italiano.
+// Lo stesso in francese con F per il fou: R roi, D dame, T tour, F fou,
+// C cavalier.
+const LOCAL_TO_SAN = {
+  es: { R: 'K', D: 'Q', T: 'R', A: 'B', C: 'N' },
+  fr: { R: 'K', D: 'Q', T: 'R', F: 'B', C: 'N' },
+};
+
+function localToSan(text) {
+  const map = LOCAL_TO_SAN[getLanguage()];
+  if (!map) return text;
+  // La lettera è un pezzo solo se dopo c'è una casella intera ("Fc4",
+  // "Cxe5", "Tae1"): "F4" o "A4" scritti con la maiuscola sono pedoni.
+  return text.replace(/^([A-Z])(?=[a-h]?[1-8]?x?[a-h][1-8])/, (m, l) => map[l] || l);
+}
+
+// In spagnolo si prova prima la lettura con le lettere spagnole e, se non
+// dà una mossa scritta bene, quella normale (es. "D4" scritto per d4).
+function tryParseCompact(rawText) {
+  const text = rawText.trim();
+  if (LOCAL_TO_SAN[getLanguage()]) {
+    const mapped = localToSan(text);
+    if (mapped !== text) {
+      const intent = parseCompactCore(mapped);
+      if (intent) return intent;
+    }
+  }
+  return parseCompactCore(text);
+}
+
+function parseCompactCore(t) {
   if (CASTLE_LONG_RE.test(t)) return { castle: 'q' };
   if (CASTLE_SHORT_RE.test(t)) return { castle: 'k' };
 
@@ -119,7 +167,12 @@ function tryParseCompact(text) {
   if (fromRank) intent.fromRank = fromRank;
   if (promoAfterEquals) {
     const p = promoAfterEquals.toLowerCase();
-    intent.promotion = PROMO_LETTER_BY_ITALIAN_LETTER[p] || p;
+    // Lettere locali dopo "=" (D/T/A/C in italiano e spagnolo, D/T/F/C in
+    // francese); in inglese solo Q/R/B/N.
+    const local = PROMO_LETTERS_BY_LANGUAGE[getLanguage()];
+    intent.promotion = (local && local[p]) || p;
+    // Lettera sconosciuta in questa lingua: si promuove a dama.
+    if (!'qrbn'.includes(intent.promotion)) intent.promotion = 'q';
   } else if (promoBare) {
     intent.promotion = promoBare.toLowerCase();
   }
@@ -193,18 +246,69 @@ function resolveIntent(intent, legalMoves) {
 // traversa/colonna, aiuto. Riconosciuti PRIMA di tentare il parsing mossa in
 // parseMoveText, così non entrano mai in conflitto con la notazione (nessuna
 // mossa scacchistica è "l", "c", "s"+cifra/lettera o "aiuto").
-const CMD_HELP_RE = /^aiuto$/i;
-const CMD_DIAGNOSTICS_RE = /^diagnosi$/i;
+const CMD_HELP_RE = /^(aiuto|help|ayuda|aide)$/i;
+const CMD_DIAGNOSTICS_RE = /^(diagnosi|diagnostics|diagnostico|diagnostic)$/i;
 const CMD_CLOCK_RE = /^c$/i;
 const CMD_LAST_MOVES_RE = /^l(\d+)?$/i;
 const CMD_RANK_RE = /^s([1-8])$/i;
 const CMD_FILE_RE = /^s([a-h])$/i;
+// Posizione dei pezzi (richiesta dei tester, 11/11/2026): "p" + lettera del
+// pezzo (in inglese, come nella notazione: K re, Q dama, R torre, B alfiere,
+// N cavallo, P pedone) oppure il nome italiano, e facoltativamente il colore
+// (b o bianchi, n o neri). Es. "p b" tutti gli alfieri, "p b n" gli alfieri
+// neri, "p torri bianche". Nessuna mossa comincia con "p" seguita da questi.
+// In inglese il colore è w (white) o b (black): "p b w" alfieri bianchi,
+// "p b b" alfieri neri. Il nome del pezzo si può anche scrivere per intero.
+const CMD_PIECES_RE = /^p(?:\s*([kqrbnpdtacf])\s*([bnw])?|\s+([a-z]{2,})(?:\s+([a-z]+))?)$/i;
+// Lettera del pezzo nel comando "p": inglese in italiano e in inglese (come
+// nella notazione), spagnola in spagnolo (r rey, d dama, t torre, a alfil,
+// c caballo; anche n/b/q/k inglesi, che lì non si confondono).
+const PIECE_LETTERS = {
+  it: { k: 'k', q: 'q', r: 'r', b: 'b', n: 'n', p: 'p' },
+  en: { k: 'k', q: 'q', r: 'r', b: 'b', n: 'n', p: 'p' },
+  es: { r: 'k', d: 'q', t: 'r', a: 'b', c: 'n', p: 'p', k: 'k', q: 'q', b: 'b', n: 'n' },
+  fr: { r: 'k', d: 'q', t: 'r', f: 'b', c: 'n', p: 'p', k: 'k', q: 'q', b: 'b', n: 'n' },
+};
+const PIECE_WORDS = {
+  re: 'k', dama: 'q', dame: 'q', donna: 'q', donne: 'q', regina: 'q', regine: 'q',
+  torre: 'r', torri: 'r', alfiere: 'b', alfieri: 'b', cavallo: 'n', cavalli: 'n', caballo: 'n',
+  pedone: 'p', pedoni: 'p',
+  king: 'k', kings: 'k', queen: 'q', queens: 'q', rook: 'r', rooks: 'r',
+  bishop: 'b', bishops: 'b', knight: 'n', knights: 'n', pawn: 'p', pawns: 'p',
+  rey: 'k', reyes: 'k', damas: 'q', reina: 'q', reinas: 'q', torres: 'r',
+  alfil: 'b', alfiles: 'b', caballos: 'n', peon: 'p', peones: 'p',
+  roi: 'k', rois: 'k', tour: 'r', tours: 'r', fou: 'b', fous: 'b',
+  cavalier: 'n', cavaliers: 'n', pion: 'p', pions: 'p',
+};
+const COLOR_WORDS = {
+  bianco: 'w', bianca: 'w', bianchi: 'w', bianche: 'w',
+  nero: 'b', nera: 'b', neri: 'b', nere: 'b',
+  white: 'w', whites: 'w', black: 'b', blacks: 'b',
+  blanco: 'w', blanca: 'w', blancos: 'w', blancas: 'w',
+  negro: 'b', negra: 'b', negros: 'b', negras: 'b',
+  blanc: 'w', blanche: 'w', blancs: 'w', blanches: 'w',
+  noir: 'b', noire: 'b', noirs: 'b', noires: 'b',
+};
+// Lettera del colore: in italiano b = bianco e n = nero, in inglese
+// w = white e b = black.
+const COLOR_LETTERS = {
+  it: { b: 'w', n: 'b', w: 'w' },
+  en: { w: 'w', b: 'b' },
+  es: { b: 'w', n: 'b', w: 'w' },
+  fr: { b: 'w', n: 'b', w: 'w' },
+};
+// Stile narrazione ("v" = voce) e musica ("m", "m+", "m-") durante la partita.
+const CMD_VOICE_RE = /^v$/i;
+const CMD_MUSIC_RE = /^m\s*([+-])?$/i;
 
 // Ritorna uno tra:
 //  { type: 'help' } | { type: 'diagnostics' }
 //  { type: 'clock' }
 //  { type: 'lastMove' } | { type: 'lastMoves', count }
 //  { type: 'rank', rank: '1'-'8' } | { type: 'file', file: 'a'-'h' }
+//  { type: 'pieces', piece: 'k'|'q'|'r'|'b'|'n'|'p', color: 'w'|'b'|null }
+//  { type: 'narrationStyle' }
+//  { type: 'musicToggle' } | { type: 'musicVolume', delta }
 //  null se il testo non è un comando riconosciuto
 export function parseCommandText(rawText) {
   const t = (rawText || '').trim();
@@ -222,6 +326,26 @@ export function parseCommandText(rawText) {
 
   m = CMD_FILE_RE.exec(t);
   if (m) return { type: 'file', file: m[1].toLowerCase() };
+
+  if (CMD_VOICE_RE.test(t)) return { type: 'narrationStyle' };
+
+  m = CMD_MUSIC_RE.exec(t);
+  if (m) {
+    if (m[1] === '+') return { type: 'musicVolume', delta: 0.1 };
+    if (m[1] === '-') return { type: 'musicVolume', delta: -0.1 };
+    return { type: 'musicToggle' };
+  }
+
+  m = CMD_PIECES_RE.exec(stripAccents(t));
+  if (m) {
+    const word = (m[1] || m[3]).toLowerCase();
+    const letters1 = PIECE_LETTERS[getLanguage()] || PIECE_LETTERS.it;
+    const piece = word.length === 1 ? letters1[word] : PIECE_WORDS[word];
+    const colorWord = (m[2] || m[4] || '').toLowerCase();
+    const letters = COLOR_LETTERS[getLanguage()] || COLOR_LETTERS.it;
+    const color = colorWord ? (colorWord.length === 1 ? letters[colorWord] : COLOR_WORDS[colorWord]) : null;
+    if (piece && (!colorWord || color)) return { type: 'pieces', piece, color };
+  }
 
   return null;
 }

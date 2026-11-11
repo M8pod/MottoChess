@@ -1,5 +1,6 @@
-import { loadSettings, saveSettings } from './session/settings.js';
+import { loadSettings, saveSettings, requestPersistentStorage } from './session/settings.js';
 import { Narrator } from './ui/narrator.js';
+import { setLanguage, t } from './i18n/i18n.js';
 import { SoundManager } from './ui/sound-manager.js';
 import { unlockAudioOnUserGesture } from './ui/audio-context.js';
 import { renderHomeScreen } from './ui/screens/home-screen.js';
@@ -13,13 +14,16 @@ const appMain = document.getElementById('app-main');
 const narrator = new Narrator(document.getElementById('narrator-live'));
 
 unlockAudioOnUserGesture();
+requestPersistentStorage();
 
 let settings = loadSettings();
+setLanguage(settings.language);
 function getSettings() {
   return settings;
 }
 function persistSettings(next) {
   settings = next;
+  setLanguage(settings.language);
   saveSettings(settings);
 }
 
@@ -30,12 +34,18 @@ let isFirstRender = true;
 
 const SCREEN_TITLES = {
   home: 'Motto Chess',
-  options: 'Opzioni partita — Motto Chess',
-  settings: 'Impostazioni — Motto Chess',
-  saved: 'Partite salvate — Motto Chess',
-  game: 'Partita — Motto Chess',
-  replay: 'Riproduzione partita — Motto Chess',
+  options: 'Opzioni partita',
+  settings: 'Impostazioni',
+  saved: 'Partite salvate',
+  game: 'Partita',
+  replay: 'Riproduzione partita',
 };
+
+function screenTitle(name) {
+  const key = SCREEN_TITLES[name];
+  if (!key || name === 'home') return 'Motto Chess';
+  return `${t(key)} — Motto Chess`;
+}
 
 // Dopo un cambio schermata il contenuto viene sostituito per intero: senza
 // spostare il focus, il cursore di VoiceOver/TalkBack/NVDA restava su un
@@ -75,7 +85,7 @@ function navigate(screenName, payload) {
       rendered = renderOptionsScreen(appMain, ctx);
       break;
     case 'settings':
-      rendered = renderSettingsScreen(appMain, ctx);
+      rendered = renderSettingsScreen(appMain, ctx, payload);
       break;
     case 'saved':
       rendered = renderSavedGamesScreen(appMain, ctx);
@@ -97,7 +107,7 @@ function navigate(screenName, payload) {
   if (myNavigation !== navigationId) return;
   if (rendered) currentScreen = rendered;
 
-  document.title = SCREEN_TITLES[screenName] || SCREEN_TITLES.home;
+  document.title = screenTitle(screenName);
   // Al primo avvio lo screen reader parte già dall'inizio della pagina.
   if (!isFirstRender) focusScreenHeading(screenName);
   isFirstRender = false;

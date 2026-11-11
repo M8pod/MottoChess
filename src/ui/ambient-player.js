@@ -18,6 +18,12 @@ export class AmbientPlayer {
     this.audio = null;
     this.source = null;
     this.gain = null;
+    this.trackKey = null;
+    this._retry = null;
+  }
+
+  get isPlaying() {
+    return Boolean(this.audio);
   }
 
   // trackKey: chiave in AMBIENT_TRACKS (es. 'nessuna', 'newage')
@@ -35,12 +41,37 @@ export class AmbientPlayer {
         this.gain = ctx.createGain();
         this.source.connect(this.gain).connect(ctx.destination);
       }
+      this.trackKey = trackKey;
       this.setVolume(volume);
-      this.audio.play().catch(() => {});
+      const audio = this.audio;
+      audio.play().catch(() => this._retryOnNextGesture(audio));
     } catch {
       // riproduzione audio non disponibile: non blocca la partita
       this.stop();
     }
+  }
+
+  // Safari su iPhone rifiuta play() se non arriva direttamente da un tocco o
+  // da un tasto: succedeva avviando la partita da "Gioca subito", dove la
+  // partita parte dopo il dialogo del colore, e la musica si sentiva solo
+  // nelle anteprime. Se il primo tentativo viene rifiutato si riprova al
+  // primo gesto successivo (tipicamente il primo tasto della prima mossa).
+  _retryOnNextGesture(audio) {
+    this._clearRetry();
+    const events = ['keydown', 'pointerdown', 'touchend', 'click'];
+    const handler = () => {
+      this._clearRetry();
+      if (this.audio !== audio) return;
+      resumeAudioContext();
+      audio.play().catch(() => {});
+    };
+    events.forEach((type) => document.addEventListener(type, handler, { capture: true, passive: true }));
+    this._retry = () => events.forEach((type) => document.removeEventListener(type, handler, { capture: true }));
+  }
+
+  _clearRetry() {
+    if (this._retry) this._retry();
+    this._retry = null;
   }
 
   setVolume(volume) {
@@ -53,6 +84,8 @@ export class AmbientPlayer {
   }
 
   stop() {
+    this._clearRetry();
+    this.trackKey = null;
     if (this.audio) {
       this.audio.pause();
       try {

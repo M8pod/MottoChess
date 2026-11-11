@@ -397,3 +397,35 @@ h2[tabindex="-1"]:focus {
   margin: 0;
   font-size: 1rem;
 }
+
+/* Voce e musica durante la partita */
+.live-settings {
+  margin-top: 1rem;
+}
+.live-settings .field {
+  margin-bottom: 0.6rem;
+}
+.live-settings label {
+  display: block;
+}
+.live-settings input[type="range"] {
+  vertical-align: middle;
+}
+
+/* Pulsante "Ripristina colori predefiniti" in Impostazioni */
+fieldset > button {
+  margin-top: 0.6rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  border: 2px solid var(--brand-gold);
+  background: var(--brand-green);
+  color: var(--text-cream);
+}
+/* Su telefono le opzioni lunghe (es. "Espanso, più semplice ...") non
+   devono far uscire il menu dallo schermo. */
+.live-settings {
+  min-width: 0;
+}
+.live-settings select {
+  max-width: 100%;
+}

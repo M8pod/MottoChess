@@ -97,6 +97,10 @@ perché i ticchettii sono brevissimi. Punti deboli da verificare all'ascolto:
 
 ## Ricordare
 
+- Dall'11/11/2026 `prove/`, `sorgenti/` e `suoni/grezzi/` restano **solo su questo Mac** (in
+  `.gitignore`, tolte da GitHub su richiesta di Roberto): non servono all'app. Se si lavora da
+  un altro computer, quelle cartelle non ci sono.
+
 - Tutto il lavoro di oggi (correzioni, ancoraggio VoiceOver, script, questa cartella) è
   **solo su questo Mac, non ancora su GitHub**. Per riprendere da un altro computer
   bisogna prima fare commit e push.

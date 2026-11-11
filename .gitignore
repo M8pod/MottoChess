@@ -1,1 +1,9 @@
 .DS_Store
+
+# Cani vs Gatti: file rigenerabili o temporanei
+cani-gatti-lavori/suoni/spettri/
+cani-gatti-lavori/suoni/dl.sh
+*.tmp.bmp
+cani-gatti-lavori/prove/
+cani-gatti-lavori/sorgenti/
+cani-gatti-lavori/suoni/grezzi/

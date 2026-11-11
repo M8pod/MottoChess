@@ -5,18 +5,18 @@ import {
   moveToCompactText,
   moveToExpandedText,
   promotionConfirmationText,
-  formatDurationItalian,
+  formatDuration,
   describeSquareForListing,
-  CITY_BY_FILE,
+  describePieceLocations,
+  fileName,
+  colorName,
 } from '../../themes/i18n-voice.js';
-import {
-  LIGHT_SQUARE_COLORS,
-  DARK_SQUARE_COLORS,
-  PIECE_SET_SQUARE_COLORS,
-} from '../../session/settings.js';
+import { t, getLanguage } from '../../i18n/i18n.js';
+import { AMBIENT_TRACKS } from '../../session/settings.js';
+import { loadLastConfig, saveLastConfig } from '../../session/options.js';
 import { factionsByColor, playerFaction } from '../../themes/factions.js';
 import { pieceSetLabel } from '../../themes/pieces.js';
-import { pieceFillFromSquareColor } from '../color-utils.js';
+import { boardColorsFor } from '../board-colors.js';
 import { BoardView } from '../board.js';
 import { ChessClock } from '../clock.js';
 import { askPromotionChoice, askResignConfirmation, showHelpDialog } from '../modal.js';
@@ -61,11 +61,15 @@ function archiveGame(gameCore, session, settings, outcome, labelSuffix) {
     result: resultTag,
     outcome,
   });
-  const dateLabel = new Date(session.startedAt).toLocaleString('it-IT');
+  const locale = { en: 'en-GB', es: 'es-ES', fr: 'fr-FR' }[getLanguage()] || 'it-IT';
+  const dateLabel = new Date(session.startedAt).toLocaleString(locale);
   // Il titolo è ciò che VoiceOver legge nell'elenco: esito a parole e set,
   // non il "1-0" del PGN.
   const esito = labelSuffix || outcomeTexts(outcome, session.color).esito;
-  saveGame({ pgn: pgnText, label: `Partita del ${dateLabel}: ${esito}, set ${pieceSetLabel(session.pieceSet)}` });
+  saveGame({
+    pgn: pgnText,
+    label: t('Partita del {date}: {outcome}, set {set}', { date: dateLabel, outcome: esito, set: pieceSetLabel(session.pieceSet) }),
+  });
 }
 
 // Una partita sospesa che viene sostituita da una nuova non va persa: finisce
@@ -81,7 +85,7 @@ function archiveSuspendedGame(settings) {
   } catch {
     return;
   }
-  archiveGame(core, progress.session, settings, null, 'interrotta');
+  archiveGame(core, progress.session, settings, null, t('interrotta'));
 }
 
 function formatClock(ms) {
@@ -100,6 +104,11 @@ function formatClock(ms) {
 // (già sciolta, mai 'casuale'); negli altri set è null/assente.
 export function renderGameScreen(container, ctx, payload) {
   const { settings, sound, narrator, navigate } = ctx;
+  // Voce e musica si possono cambiare anche durante la partita: la scelta
+  // vale da subito e resta salvata per le partite successive.
+  function persistSettings() {
+    ctx.saveSettings(structuredClone(settings));
+  }
 
   let resumeState = null;
   if (payload && payload.resume) {
@@ -116,7 +125,7 @@ export function renderGameScreen(container, ctx, payload) {
   container.innerHTML = '';
   const heading = document.createElement('h2');
   heading.className = 'sr-only';
-  heading.textContent = 'Partita';
+  heading.textContent = t('Partita');
   container.appendChild(heading);
 
   const clockBar = document.createElement('div');
@@ -139,18 +148,72 @@ export function renderGameScreen(container, ctx, payload) {
   // leggevano la parola inglese con la pronuncia italiana.
   const resignBtn = document.createElement('button');
   resignBtn.type = 'button';
-  resignBtn.textContent = 'Abbandona';
+  resignBtn.textContent = t('Abbandona');
   const helpBtn = document.createElement('button');
   helpBtn.type = 'button';
-  helpBtn.textContent = 'Aiuto';
+  helpBtn.textContent = t('Aiuto');
   helpBtn.addEventListener('click', () => showHelpDialog());
   // Uscire senza abbandonare: la partita resta salvata e si riprende dalla
   // schermata iniziale.
   const suspendBtn = document.createElement('button');
   suspendBtn.type = 'button';
-  suspendBtn.textContent = 'Sospendi e torna al menu';
+  suspendBtn.textContent = t('Sospendi e torna al menu');
   functionBox.append(resignBtn, helpBtn, suspendBtn);
   container.appendChild(functionBox);
+
+  // Voce e musica durante la partita (richiesta dei tester, 11/11/2026): lo
+  // stile della narrazione, la traccia e il volume della sola musica. Gli
+  // stessi cambi si fanno dal campo comandi con "v", "m", "m+" e "m-".
+  const liveFs = document.createElement('fieldset');
+  liveFs.className = 'live-settings';
+  const liveLegend = document.createElement('legend');
+  liveLegend.textContent = t('Voce e musica');
+  liveFs.appendChild(liveLegend);
+
+  function liveRow(labelText, inputEl) {
+    const div = document.createElement('div');
+    div.className = 'field';
+    const label = document.createElement('label');
+    label.textContent = `${t(labelText)} `;
+    label.appendChild(inputEl);
+    div.appendChild(label);
+    return div;
+  }
+
+  const styleSelect = document.createElement('select');
+  [
+    ['compatto', 'Compatto (es. N f3)'],
+    ['espanso', 'Espanso, più semplice (es. cavallo in Firenze 3)'],
+  ].forEach(([value, text]) => {
+    const o = document.createElement('option');
+    o.value = value;
+    o.textContent = t(text);
+    styleSelect.appendChild(o);
+  });
+  styleSelect.value = settings.narrationStyle;
+  liveFs.appendChild(liveRow('Stile narrazione', styleSelect));
+
+  const trackSelect = document.createElement('select');
+  Object.entries(AMBIENT_TRACKS).forEach(([key, track]) => {
+    const o = document.createElement('option');
+    o.value = key;
+    o.textContent = t(track.label);
+    trackSelect.appendChild(o);
+  });
+  liveFs.appendChild(liveRow('Musica', trackSelect));
+
+  const musicVolume = document.createElement('input');
+  musicVolume.type = 'range';
+  musicVolume.min = '0';
+  musicVolume.max = '1';
+  musicVolume.step = '0.05';
+  const musicVolumeOut = document.createElement('span');
+  musicVolumeOut.className = 'volume-value';
+  musicVolumeOut.setAttribute('aria-hidden', 'true');
+  const musicVolumeRow = liveRow('Volume musica', musicVolume);
+  musicVolumeRow.appendChild(musicVolumeOut);
+  liveFs.appendChild(musicVolumeRow);
+  container.appendChild(liveFs);
 
   const postGamePanel = document.createElement('div');
   postGamePanel.className = 'post-game-panel';
@@ -173,11 +236,11 @@ export function renderGameScreen(container, ctx, payload) {
   textInput.type = 'text';
   textInput.autocomplete = 'off';
   textInput.enterKeyHint = 'send';
-  textInput.setAttribute('aria-label', 'Comando mossa testuale o comando informativo (aiuto per l\'elenco)');
-  textInput.placeholder = 'es. e4, Empoli 4, aiuto...';
+  textInput.setAttribute('aria-label', t("Comando mossa testuale o comando informativo (aiuto per l'elenco)"));
+  textInput.placeholder = t('es. e4, Empoli 4, aiuto...');
   const submitBtn = document.createElement('button');
   submitBtn.type = 'button';
-  submitBtn.textContent = 'Invia';
+  submitBtn.textContent = t('Invia');
   commandBar.append(textInput, submitBtn);
   container.appendChild(commandBar);
 
@@ -207,7 +270,50 @@ export function renderGameScreen(container, ctx, payload) {
 
   const boardView = new BoardView(boardContainer, { onSquareClick });
   const ambient = new AmbientPlayer();
-  const ambientTrackKey = session.ambientTrack || 'nessuna';
+  let ambientTrackKey = AMBIENT_TRACKS[session.ambientTrack] ? session.ambientTrack : 'nessuna';
+  // Ultima traccia vera scelta: "m" riaccende quella dopo averla spenta.
+  let lastRealTrack = ambientTrackKey !== 'nessuna' ? ambientTrackKey : 'newage';
+  trackSelect.value = ambientTrackKey;
+
+  function percent(value) {
+    return Math.round(Number(value) * 100);
+  }
+
+  function refreshMusicVolume() {
+    musicVolume.value = String(settings.volumeAmbient);
+    musicVolume.setAttribute('aria-valuetext', t('{n} per cento', { n: percent(settings.volumeAmbient) }));
+    musicVolumeOut.textContent = `${percent(settings.volumeAmbient)}%`;
+  }
+  refreshMusicVolume();
+
+  function setMusicVolume(value) {
+    settings.volumeAmbient = Math.max(0, Math.min(1, Math.round(value * 20) / 20));
+    ambient.setVolume(settings.volumeAmbient);
+    refreshMusicVolume();
+    persistSettings();
+  }
+
+  // Cambia traccia (o 'nessuna' per spegnere) e la ricorda: per riprendere
+  // questa partita e come scelta delle partite successive.
+  function setTrack(key) {
+    ambientTrackKey = key;
+    if (key !== 'nessuna') lastRealTrack = key;
+    trackSelect.value = key;
+    session.ambientTrack = key;
+    saveLastConfig({ ...loadLastConfig(settings.defaultPieceSet), ambientTrack: key });
+    if (gameOver || key === 'nessuna') ambient.stop();
+    else ambient.play(key, settings.volumeAmbient);
+  }
+
+  function setNarrationStyle(style) {
+    settings.narrationStyle = style;
+    styleSelect.value = style;
+    persistSettings();
+  }
+
+  styleSelect.addEventListener('change', () => setNarrationStyle(styleSelect.value));
+  trackSelect.addEventListener('change', () => setTrack(trackSelect.value));
+  musicVolume.addEventListener('input', () => setMusicVolume(Number(musicVolume.value)));
 
   // Chi occupa quale colore in questa partita, nei set a fazioni: { w, b }
   // (null per gli altri set). Calcolata una volta sola: vale fino alla fine.
@@ -227,19 +333,7 @@ export function renderGameScreen(container, ctx, payload) {
   }
 
   function currentColors() {
-    // Un set con pezzi a colori fissi (Judo) impone i propri colori casella:
-    // quelli scelti in Impostazioni valgono per i set ricolorabili.
-    const setColors = PIECE_SET_SQUARE_COLORS[session.pieceSet];
-    const lightHex = LIGHT_SQUARE_COLORS[setColors ? setColors.light : settings.lightSquareColorName];
-    const darkHex = DARK_SQUARE_COLORS[setColors ? setColors.dark : settings.darkSquareColorName];
-    return {
-      lightHex,
-      darkHex,
-      pieceColors: {
-        w: pieceFillFromSquareColor(lightHex, 'w'),
-        b: pieceFillFromSquareColor(darkHex, 'b'),
-      },
-    };
+    return boardColorsFor(settings, session.pieceSet);
   }
 
   async function renderBoardAndControls() {
@@ -314,8 +408,8 @@ export function renderGameScreen(container, ctx, payload) {
   // successo e riferirlo, senza strumenti di sviluppo.
   const focusLog = [];
   function logFocusEvent(text) {
-    const t = new Date();
-    const stamp = `${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}:${String(t.getSeconds()).padStart(2, '0')}`;
+    const now = new Date();
+    const stamp = `${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
     focusLog.push(`${stamp} ${text}`);
     if (focusLog.length > 8) focusLog.shift();
   }
@@ -382,8 +476,8 @@ export function renderGameScreen(container, ctx, payload) {
     // secondo: riscriverlo comunque era una modifica della pagina ogni 250
     // ms, rumore inutile per lo screen reader (e una delle cose che possono
     // disturbare il cursore di VoiceOver).
-    const youText = `Tu: ${formatClock(youMs)}`;
-    const oppText = `Avversario: ${formatClock(oppMs)}`;
+    const youText = `${t('Tu')}: ${formatClock(youMs)}`;
+    const oppText = `${t('Avversario')}: ${formatClock(oppMs)}`;
     if (yourClock.textContent !== youText) yourClock.textContent = youText;
     if (oppClock.textContent !== oppText) oppClock.textContent = oppText;
   }
@@ -397,18 +491,18 @@ export function renderGameScreen(container, ctx, payload) {
         onWarning10: (side, remainingMs) => {
           if (side !== session.color || !settings.timeWarning10Enabled) return;
           narrator.announce(
-            `Attenzione, tempo in esaurimento: restano circa ${formatDurationItalian(remainingMs)}.`
+            t('Attenzione, tempo in esaurimento: restano circa {time}.', { time: formatDuration(remainingMs) })
           );
         },
         onWarning5: (side, remainingMs) => {
           if (side !== session.color || !settings.timeWarning5Enabled) return;
           narrator.announce(
-            `Attenzione, tempo quasi scaduto: restano circa ${formatDurationItalian(remainingMs)}.`
+            t('Attenzione, tempo quasi scaduto: restano circa {time}.', { time: formatDuration(remainingMs) })
           );
         },
         onElapsed10Min: (markMs) => {
           if (!settings.timeElapsedEvery10MinEnabled) return;
-          narrator.announce(`Sono trascorsi ${Math.round(markMs / 60000)} minuti di gioco.`);
+          narrator.announce(t('Sono trascorsi {n} minuti di gioco.', { n: Math.round(markMs / 60000) }));
         },
         onFlag: (side) => endGame({ kind: 'timeout', loser: side }),
       },
@@ -450,7 +544,7 @@ export function renderGameScreen(container, ctx, payload) {
     if (outcome.kind === 'checkmate') {
       const won = outcome.winner === session.color;
       soundKey = won ? 'outcome_win_checkmate' : 'outcome_loss_checkmate';
-      text = won ? 'Scacco matto. Hai vinto.' : 'Scacco matto. Hai perso.';
+      text = won ? t('Scacco matto. Hai vinto.') : t('Scacco matto. Hai perso.');
     } else if (outcome.kind === 'draw') {
       soundKey = 'outcome_draw';
       const map = {
@@ -459,14 +553,14 @@ export function renderGameScreen(container, ctx, payload) {
         fifty: 'Patta per regola delle cinquanta mosse.',
         insufficient: 'Patta per materiale insufficiente.',
       };
-      text = map[outcome.reason];
+      text = t(map[outcome.reason]);
     } else if (outcome.kind === 'timeout') {
       const lost = outcome.loser === session.color;
       soundKey = lost ? 'outcome_loss_resign_timeout' : 'outcome_win_resign_timeout';
-      text = lost ? 'Tempo scaduto. Hai perso.' : "Tempo scaduto per l'avversario. Hai vinto.";
+      text = lost ? t('Tempo scaduto. Hai perso.') : t("Tempo scaduto per l'avversario. Hai vinto.");
     } else {
       soundKey = 'outcome_loss_resign_timeout';
-      text = 'Hai abbandonato la partita. Hai perso.';
+      text = t('Hai abbandonato la partita. Hai perso.');
     }
 
     sound.playGame(soundKey, soundCtxFor(session.color));
@@ -479,7 +573,7 @@ export function renderGameScreen(container, ctx, payload) {
     resultText.textContent = text;
     const menuBtn = document.createElement('button');
     menuBtn.type = 'button';
-    menuBtn.textContent = 'Torna al menu';
+    menuBtn.textContent = t('Torna al menu');
     menuBtn.addEventListener('click', () => {
       sound.playGame('session_end', soundCtxFor(session.color));
       if (engine) engine.destroy();
@@ -653,38 +747,38 @@ export function renderGameScreen(container, ctx, payload) {
   // in un momento qualsiasi).
   function describeHistoryMove(move, index) {
     const moveNumber = Math.floor(index / 2) + 1;
-    const sideLabel = move.color === 'w' ? 'bianco' : 'nero';
+    const sideLabel = colorName(move.color);
     const isCheckmate = move.san.endsWith('#');
     const isCheck = isCheckmate || move.san.endsWith('+');
     const text =
       settings.narrationStyle === 'compatto'
         ? moveToCompactText(move)
         : moveToExpandedText(move, { isCheck, isCheckmate });
-    return `Mossa ${moveNumber}, ${sideLabel}: ${text}`;
+    return t('Mossa {n}, {side}: {text}', { n: moveNumber, side: sideLabel, text });
   }
 
   function announceLastMoves(requestedCount) {
     const history = gameCore.history({ verbose: true });
     if (history.length === 0) {
-      narrator.announce('Nessuna mossa giocata finora.');
+      narrator.announce(t('Nessuna mossa giocata finora.'));
       return;
     }
     const count = Math.max(1, Math.min(requestedCount, history.length));
     const startIdx = history.length - count;
     const parts = history.slice(startIdx).map((move, i) => describeHistoryMove(move, startIdx + i));
-    const prefix = count === 1 ? 'Ultima mossa.' : `Ultime ${count} mosse.`;
+    const prefix = count === 1 ? t('Ultima mossa.') : t('Ultime {n} mosse.', { n: count });
     narrator.announce(`${prefix} ${parts.join('. ')}.`);
   }
 
   function announceClock() {
     if (!session.timeEnabled || !clock) {
-      narrator.announce('Questa partita non ha il tempo attivato.');
+      narrator.announce(t('Questa partita non ha il tempo attivato.'));
       return;
     }
     const oppColor = session.color === 'w' ? 'b' : 'w';
-    const yours = formatDurationItalian(clock.remaining[session.color]);
-    const opp = formatDurationItalian(clock.remaining[oppColor]);
-    narrator.announce(`Tempo residuo: tu hai ${yours}, l'avversario ha ${opp}.`);
+    const yours = formatDuration(clock.remaining[session.color]);
+    const opp = formatDuration(clock.remaining[oppColor]);
+    narrator.announce(t("Tempo residuo: tu hai {yours}, l'avversario ha {opp}.", { yours, opp }));
   }
 
   function announceRank(rank) {
@@ -692,7 +786,7 @@ export function renderGameScreen(container, ctx, payload) {
       const square = `${file}${rank}`;
       return describeSquareForListing(square, gameCore.pieceAt(square));
     });
-    narrator.announce(`Traversa ${rank}: ${parts.join(', ')}.`);
+    narrator.announce(`${t('Traversa {n}', { n: rank })}: ${parts.join(', ')}.`);
   }
 
   function announceFile(file) {
@@ -700,19 +794,81 @@ export function renderGameScreen(container, ctx, payload) {
       const square = `${file}${rank}`;
       return describeSquareForListing(square, gameCore.pieceAt(square));
     });
-    narrator.announce(`Colonna ${CITY_BY_FILE[file]}: ${parts.join(', ')}.`);
+    narrator.announce(`${t('Colonna {name}', { name: fileName(file) })}: ${parts.join(', ')}.`);
+  }
+
+  function announcePieces(pieceType, color) {
+    const colors = color ? [color] : ['w', 'b'];
+    const parts = colors.map((c) => {
+      const squares = [];
+      // Ordine di lettura: colonna per colonna (Ancona, Bologna...), dalla
+      // traversa 1 alla 8.
+      FILES_ORDER.forEach((file) => {
+        for (let rank = 1; rank <= 8; rank++) {
+          const square = `${file}${rank}`;
+          const piece = gameCore.pieceAt(square);
+          if (piece && piece.type === pieceType && piece.color === c) squares.push(square);
+        }
+      });
+      return describePieceLocations(pieceType, c, squares);
+    });
+    narrator.announce(parts.join(' '));
+  }
+
+  function toggleNarrationStyle() {
+    const next = settings.narrationStyle === 'compatto' ? 'espanso' : 'compatto';
+    setNarrationStyle(next);
+    narrator.announce(
+      next === 'espanso'
+        ? t('Stile narrazione espanso: per esempio, cavallo in Firenze 3.')
+        : t('Stile narrazione compatto: per esempio, N f3.')
+    );
+  }
+
+  function toggleMusic() {
+    if (gameOver) {
+      narrator.announce(t('La partita è terminata.'));
+      return;
+    }
+    if (ambientTrackKey !== 'nessuna') {
+      setTrack('nessuna');
+      narrator.announce(t('Musica spenta.'));
+    } else {
+      setTrack(lastRealTrack);
+      narrator.announce(
+        t('Musica accesa: {track}, volume {n} per cento.', { track: t(AMBIENT_TRACKS[lastRealTrack].label), n: percent(settings.volumeAmbient) })
+      );
+    }
+  }
+
+  function changeMusicVolume(delta) {
+    setMusicVolume(settings.volumeAmbient + delta);
+    const off = ambientTrackKey === 'nessuna' ? ` ${t('La musica è spenta: scrivi m per accenderla.')}` : '';
+    narrator.announce(`${t('Volume musica {n} per cento.', { n: percent(settings.volumeAmbient) })}${off}`);
   }
 
   function handleCommand(command) {
     switch (command.type) {
+      case 'pieces':
+        announcePieces(command.piece, command.color);
+        break;
+      case 'narrationStyle':
+        toggleNarrationStyle();
+        break;
+      case 'musicToggle':
+        toggleMusic();
+        break;
+      case 'musicVolume':
+        changeMusicVolume(command.delta);
+        break;
       case 'help':
         showHelpDialog();
         break;
       case 'diagnostics':
         narrator.announce(
           focusLog.length
-            ? `Ultimi eventi del cursore: ${focusLog.join('. ')}.`
-            : 'Nessuna perdita del cursore registrata in questa partita.'
+            ? `${t('Ultimi eventi del cursore:')} ${focusLog.join('. ')}.`
+            : t('Nessuna perdita del cursore registrata in questa partita.')
         );
         break;
       case 'clock':
@@ -755,11 +911,11 @@ export function renderGameScreen(container, ctx, payload) {
       }
 
       if (gameOver) {
-        narrator.announce('La partita è terminata.');
+        narrator.announce(t('La partita è terminata.'));
         return;
       }
       if (gameCore.turn !== session.color) {
-        narrator.announce('Non è il tuo turno.');
+        narrator.announce(t('Non è il tuo turno.'));
         return;
       }
 
@@ -803,13 +959,13 @@ export function renderGameScreen(container, ctx, payload) {
     }
     suspending = true;
     persistProgress();
-    narrator.announce('Partita sospesa. Puoi riprenderla dalla schermata iniziale.');
+    narrator.announce(t('Partita sospesa. Puoi riprenderla dalla schermata iniziale.'));
     navigate('home');
   });
 
   function resumeAnnouncement() {
-    const colorText = session.color === 'w' ? 'il bianco' : 'il nero';
-    const turnText = gameCore.turn === session.color ? 'tocca a te' : "tocca all'avversario";
+    const colorText = session.color === 'w' ? t('il bianco') : t('il nero');
+    const turnText = gameCore.turn === session.color ? t('tocca a te') : t("tocca all'avversario");
     const history = gameCore.history({ verbose: true });
     let lastText = '';
     if (history.length > 0) {
@@ -820,9 +976,9 @@ export function renderGameScreen(container, ctx, payload) {
         settings.narrationStyle === 'compatto'
           ? moveToCompactText(last)
           : moveToExpandedText(last, { isCheck, isCheckmate });
-      lastText = ` Ultima mossa, ${last.color === 'w' ? 'bianco' : 'nero'}: ${moveText}.`;
+      lastText = ` ${t('Ultima mossa, {side}: {text}.', { side: colorName(last.color), text: moveText })}`;
     }
-    return `Partita ripresa. Giochi con ${colorText}, ${turnText}.${lastText}`;
+    return `${t('Partita ripresa. Giochi con {color}, {turn}.', { color: colorText, turn: turnText })}${lastText}`;
   }
 
   async function start() {
@@ -839,8 +995,8 @@ export function renderGameScreen(container, ctx, payload) {
     } else {
       narrator.announce(
         session.color === 'w'
-          ? 'Nuova partita. Giochi con il bianco, muovi tu.'
-          : 'Nuova partita. Giochi con il nero, attendi la mossa dell\'avversario.'
+          ? t('Nuova partita. Giochi con il bianco, muovi tu.')
+          : t("Nuova partita. Giochi con il nero, attendi la mossa dell'avversario.")
       );
     }
 

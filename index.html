@@ -59,12 +59,28 @@
         h1.textContent = 'Motto Chess';
         var p = document.createElement('p');
         p.setAttribute('role', 'alert');
-        p.textContent =
-          "Errore di avvio: l'applicazione non si è caricata correttamente. Premi Riprova per scaricare di nuovo l'ultima versione.";
+        // Lingua scelta in Impostazioni (o del dispositivo al primo avvio).
+        var lang = 'it';
+        try {
+          var saved = JSON.parse(localStorage.getItem('mottochess.settings.v1') || 'null');
+          var dev = (navigator.language || '').slice(0, 2).toLowerCase();
+          lang = saved && saved.language ? saved.language : (dev === 'it' || dev === 'es' || dev === 'fr' ? dev : 'en');
+        } catch (err) {
+          lang = 'it';
+        }
+        document.documentElement.lang = lang;
+        var msgs = {
+          it: ["Errore di avvio: l'applicazione non si è caricata correttamente. Premi Riprova per scaricare di nuovo l'ultima versione.", 'Riprova'],
+          en: ['Startup error: the app did not load correctly. Press Try again to download the latest version.', 'Try again'],
+          es: ['Error de inicio: la aplicación no se ha cargado correctamente. Pulsa Reintentar para descargar la última versión.', 'Reintentar'],
+          fr: ["Erreur de démarrage : l'application ne s'est pas chargée correctement. Appuyez sur Réessayer pour télécharger la dernière version.", 'Réessayer'],
+        };
+        var msg = msgs[lang] || msgs.it;
+        p.textContent = msg[0];
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'big-button';
-        btn.textContent = 'Riprova';
+        btn.textContent = msg[1];
         btn.addEventListener('click', cleanReload);
         main.append(h1, p, btn);
       }

@@ -1,11 +1,18 @@
-import { LIGHT_SQUARE_COLORS, DARK_SQUARE_COLORS } from '../../session/settings.js';
+import {
+  LIGHT_SQUARE_COLORS,
+  DARK_SQUARE_COLORS,
+  DEFAULT_SETTINGS,
+  DEFAULT_INTENSITY,
+} from '../../session/settings.js';
+import { chosenSquareColors } from '../board-colors.js';
+import { t, LANGUAGES } from '../../i18n/i18n.js';
 import { AmbientPlayer } from '../ambient-player.js';
 import { contrastRatio, pieceFillFromSquareColor } from '../color-utils.js';
 import { PIECE_SET_CHOICES } from '../../themes/pieces.js';
 import { setLastConfigPieceSet } from '../../session/options.js';
 
 function percentText(value) {
-  return `${Math.round(Number(value) * 100)} per cento`;
+  return t('{n} per cento', { n: Math.round(Number(value) * 100) });
 }
 
 function fieldRow(labelText, inputEl) {
@@ -18,7 +25,7 @@ function fieldRow(labelText, inputEl) {
   return div;
 }
 
-export function renderSettingsScreen(container, ctx) {
+export function renderSettingsScreen(container, ctx, payload) {
   const { sound, navigate, saveSettings } = ctx;
   let settings = structuredClone(ctx.settings);
 
@@ -31,17 +38,17 @@ export function renderSettingsScreen(container, ctx) {
   const backBtn = document.createElement('button');
   backBtn.type = 'button';
   backBtn.className = 'back-link';
-  backBtn.textContent = '← Torna al menu';
+  backBtn.textContent = `← ${t('Torna al menu')}`;
   backBtn.addEventListener('click', () => navigate('home'));
   container.appendChild(backBtn);
 
   const h2 = document.createElement('h2');
-  h2.textContent = 'Impostazioni';
+  h2.textContent = t('Impostazioni');
   container.appendChild(h2);
 
   // --- Accessibilità ---
   const accessFs = document.createElement('fieldset');
-  accessFs.innerHTML = '<legend>Accessibilità</legend>';
+  accessFs.innerHTML = `<legend>${t('Accessibilità')}</legend>`;
 
   const themeSoundsLabel = document.createElement('label');
   const themeSoundsInput = document.createElement('input');
@@ -51,12 +58,13 @@ export function renderSettingsScreen(container, ctx) {
     settings.themeSoundsEnabled = themeSoundsInput.checked;
     persist();
   });
-  themeSoundsLabel.append(themeSoundsInput, ' Suoni set tematici attivi');
+  themeSoundsLabel.append(themeSoundsInput, ` ${t('Suoni set tematici attivi')}`);
   const themeSoundsHint = document.createElement('p');
   themeSoundsHint.id = 'theme-sounds-hint';
   themeSoundsHint.className = 'field-hint';
-  themeSoundsHint.textContent =
-    'Se disattivati, ogni set usa i suoni neutri del set classico: i suoni di gioco non vengono mai spenti.';
+  themeSoundsHint.textContent = t(
+    'Se disattivati, ogni set usa i suoni neutri del set classico: i suoni di gioco non vengono mai spenti.'
+  );
   themeSoundsInput.setAttribute('aria-describedby', themeSoundsHint.id);
   accessFs.append(themeSoundsLabel, themeSoundsHint);
 
@@ -66,7 +74,7 @@ export function renderSettingsScreen(container, ctx) {
   const narrationDiv = document.createElement('fieldset');
   narrationDiv.className = 'field nested-fieldset';
   const narrationLegend = document.createElement('legend');
-  narrationLegend.textContent = 'Stile narrazione';
+  narrationLegend.textContent = t('Stile narrazione');
   narrationDiv.appendChild(narrationLegend);
   ['compatto', 'espanso'].forEach((style) => {
     const label = document.createElement('label');
@@ -79,7 +87,7 @@ export function renderSettingsScreen(container, ctx) {
       settings.narrationStyle = style;
       persist();
     });
-    label.append(radio, ` ${style === 'compatto' ? 'Compatto (es. N f3, Q prende c5)' : 'Espanso (es. cavallo in Firenze 3)'}`);
+    label.append(radio, ` ${style === 'compatto' ? t('Compatto (es. N f3, Q prende c5)') : t('Espanso (es. cavallo in Firenze 3)')}`);
     narrationDiv.appendChild(label);
   });
   accessFs.appendChild(narrationDiv);
@@ -87,7 +95,7 @@ export function renderSettingsScreen(container, ctx) {
   const timeNoticesDiv = document.createElement('fieldset');
   timeNoticesDiv.className = 'field nested-fieldset';
   const timeNoticesLegend = document.createElement('legend');
-  timeNoticesLegend.textContent = 'Notifiche vocali tempo (solo partite a tempo)';
+  timeNoticesLegend.textContent = t('Notifiche vocali tempo (solo partite a tempo)');
   timeNoticesDiv.appendChild(timeNoticesLegend);
   [
     ['timeWarning10Enabled', 'Avviso al 10% del tempo residuo'],
@@ -102,7 +110,7 @@ export function renderSettingsScreen(container, ctx) {
       settings[key] = cb.checked;
       persist();
     });
-    label.append(cb, ` ${text}`);
+    label.append(cb, ` ${t(text)}`);
     timeNoticesDiv.appendChild(label);
   });
   accessFs.appendChild(timeNoticesDiv);
@@ -110,7 +118,7 @@ export function renderSettingsScreen(container, ctx) {
 
   // --- Audio ---
   const audioFs = document.createElement('fieldset');
-  audioFs.innerHTML = '<legend>Audio</legend>';
+  audioFs.innerHTML = `<legend>${t('Audio')}</legend>`;
   // Il valore viene letto in percentuale (aria-valuetext) invece di "0,9",
   // ed è scritto anche accanto al cursore. Al rilascio si sente un suono di
   // prova al nuovo volume, così chi non vede sa subito com'è.
@@ -145,7 +153,7 @@ export function renderSettingsScreen(container, ctx) {
       persist();
     });
     input.addEventListener('change', preview);
-    const row = fieldRow(text, input);
+    const row = fieldRow(t(text), input);
     // Fuori dalla <label>: il nome del cursore resta solo "Volume ...", e il
     // valore lo legge lo screen reader da aria-valuetext.
     row.appendChild(valueOut);
@@ -154,28 +162,73 @@ export function renderSettingsScreen(container, ctx) {
   container.appendChild(audioFs);
 
   // --- Grafica scacchiera ---
+  // Valgono per la scacchiera classica (e i set ricolorabili): Judo e Cani vs
+  // Gatti hanno colori casella propri. Ogni scelta viene salvata subito su
+  // questo dispositivo e ritrovata alle aperture successive.
   const boardFs = document.createElement('fieldset');
-  boardFs.innerHTML = '<legend>Grafica scacchiera</legend>';
+  boardFs.innerHTML = `<legend>${t('Grafica scacchiera classica')}</legend>`;
 
-  const lightSelect = document.createElement('select');
-  Object.keys(LIGHT_SQUARE_COLORS).forEach((name) => {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    if (name === settings.lightSquareColorName) opt.selected = true;
-    lightSelect.appendChild(opt);
-  });
-  boardFs.appendChild(fieldRow('Colore caselle chiare', lightSelect));
+  const boardInfo = document.createElement('p');
+  boardInfo.className = 'field-hint';
+  boardInfo.textContent = t(
+    "Le caselle chiare si scelgono fra colori chiari, le scure fra colori scuri. Per ognuna puoi regolare l'intensità. Le scelte vengono salvate su questo dispositivo e restano per le partite successive. I set Judo e Cani vs Gatti usano colori propri."
+  );
+  boardFs.appendChild(boardInfo);
 
-  const darkSelect = document.createElement('select');
-  Object.keys(DARK_SQUARE_COLORS).forEach((name) => {
-    const opt = document.createElement('option');
-    opt.value = name;
-    opt.textContent = name;
-    if (name === settings.darkSquareColorName) opt.selected = true;
-    darkSelect.appendChild(opt);
-  });
-  boardFs.appendChild(fieldRow('Colore caselle scure', darkSelect));
+  function colorSelect(palette, selectedName) {
+    const select = document.createElement('select');
+    Object.keys(palette).forEach((name) => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = t(name);
+      if (name === selectedName) opt.selected = true;
+      select.appendChild(opt);
+    });
+    return select;
+  }
+
+  function intensityText(value) {
+    const v = Math.round(Number(value));
+    if (v === DEFAULT_INTENSITY) return t('normale');
+    return v < DEFAULT_INTENSITY ? t('più tenue, {n} per cento', { n: v }) : t('più intensa, {n} per cento', { n: v });
+  }
+
+  // Cursore intensità 0-100 a passi di 10 (50 = colore della palette).
+  function intensityRow(labelText, key) {
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = '0';
+    input.max = '100';
+    input.step = '10';
+    input.value = String(settings[key] ?? DEFAULT_INTENSITY);
+    const valueOut = document.createElement('span');
+    valueOut.className = 'volume-value';
+    valueOut.setAttribute('aria-hidden', 'true');
+    const refresh = () => {
+      input.setAttribute('aria-valuetext', intensityText(input.value));
+      valueOut.textContent = intensityText(input.value);
+    };
+    refresh();
+    input.addEventListener('input', () => {
+      settings[key] = Number(input.value);
+      refresh();
+      persist();
+      updatePreview();
+    });
+    const row = fieldRow(labelText, input);
+    row.appendChild(valueOut);
+    return { row, input, refresh };
+  }
+
+  const lightSelect = colorSelect(LIGHT_SQUARE_COLORS, settings.lightSquareColorName);
+  boardFs.appendChild(fieldRow(t('Colore caselle chiare'), lightSelect));
+  const lightIntensity = intensityRow(t('Intensità caselle chiare'), 'lightSquareIntensity');
+  boardFs.appendChild(lightIntensity.row);
+
+  const darkSelect = colorSelect(DARK_SQUARE_COLORS, settings.darkSquareColorName);
+  boardFs.appendChild(fieldRow(t('Colore caselle scure'), darkSelect));
+  const darkIntensity = intensityRow(t('Intensità caselle scure'), 'darkSquareIntensity');
+  boardFs.appendChild(darkIntensity.row);
 
   const preview = document.createElement('div');
   preview.className = 'color-swatch-preview';
@@ -195,18 +248,18 @@ export function renderSettingsScreen(container, ctx) {
   boardFs.appendChild(preview);
 
   function updatePreview() {
-    const lightHex = LIGHT_SQUARE_COLORS[lightSelect.value];
-    const darkHex = DARK_SQUARE_COLORS[darkSelect.value];
+    const { lightHex, darkHex } = chosenSquareColors(settings);
     lightSwatch.style.background = lightHex;
     darkSwatch.style.background = darkHex;
     whitePieceSwatch.style.background = pieceFillFromSquareColor(lightHex, 'w');
     blackPieceSwatch.style.background = pieceFillFromSquareColor(darkHex, 'b');
     const ratio = contrastRatio(lightHex, darkHex);
-    contrastText.textContent = `Contrasto caselle: ${ratio.toFixed(2)}:1`;
+    let text = t('Contrasto caselle: {ratio}:1', { ratio: ratio.toFixed(2) });
+    if (ratio < 3) text += ` — ${t('contrasto insufficiente, scegli colori più distinti')}`;
+    // Riscritto solo se cambia: muovendo il cursore dell'intensità lo
+    // screen reader non deve ripetere lo stesso annuncio a ogni passo.
+    if (contrastText.textContent !== text) contrastText.textContent = text;
     contrastText.className = ratio >= 3 ? 'contrast-ok' : 'contrast-warning';
-    if (ratio < 3) {
-      contrastText.textContent += ' — contrasto insufficiente, scegli colori più distinti';
-    }
   }
   lightSelect.addEventListener('change', () => {
     settings.lightSquareColorName = lightSelect.value;
@@ -218,17 +271,38 @@ export function renderSettingsScreen(container, ctx) {
     persist();
     updatePreview();
   });
+
+  const resetColorsBtn = document.createElement('button');
+  resetColorsBtn.type = 'button';
+  resetColorsBtn.textContent = t('Ripristina colori predefiniti');
+  resetColorsBtn.addEventListener('click', () => {
+    settings.lightSquareColorName = DEFAULT_SETTINGS.lightSquareColorName;
+    settings.darkSquareColorName = DEFAULT_SETTINGS.darkSquareColorName;
+    settings.lightSquareIntensity = DEFAULT_INTENSITY;
+    settings.darkSquareIntensity = DEFAULT_INTENSITY;
+    persist();
+    lightSelect.value = settings.lightSquareColorName;
+    darkSelect.value = settings.darkSquareColorName;
+    lightIntensity.input.value = String(DEFAULT_INTENSITY);
+    darkIntensity.input.value = String(DEFAULT_INTENSITY);
+    lightIntensity.refresh();
+    darkIntensity.refresh();
+    updatePreview();
+    ctx.narrator.announce(t('Colori predefiniti ripristinati: verde salvia e viola, intensità normale.'));
+  });
+  boardFs.appendChild(resetColorsBtn);
+
   updatePreview();
   container.appendChild(boardFs);
 
   // --- Set pezzi preferito ---
   const setFs = document.createElement('fieldset');
-  setFs.innerHTML = '<legend>Set pezzi preferito</legend>';
+  setFs.innerHTML = `<legend>${t('Set pezzi preferito')}</legend>`;
   const setSelect = document.createElement('select');
   PIECE_SET_CHOICES.filter((c) => c.available).forEach((choice) => {
     const o = document.createElement('option');
     o.value = choice.value;
-    o.textContent = choice.label;
+    o.textContent = t(choice.label);
     if (choice.value === settings.defaultPieceSet) o.selected = true;
     setSelect.appendChild(o);
   });
@@ -237,59 +311,77 @@ export function renderSettingsScreen(container, ctx) {
     persist();
     setLastConfigPieceSet(setSelect.value, setSelect.value);
   });
-  setFs.appendChild(fieldRow('Set pezzi', setSelect));
+  setFs.appendChild(fieldRow(t('Set pezzi'), setSelect));
   const setHint = document.createElement('p');
   setHint.id = 'default-set-hint';
   setHint.className = 'field-hint';
-  setHint.textContent =
-    'Usato da "Gioca subito" e preselezionato in Opzioni partita, finché non ne scegli un altro lì.';
+  setHint.textContent = t(
+    'Usato da "Gioca subito" e preselezionato in Opzioni partita, finché non ne scegli un altro lì.'
+  );
   setSelect.setAttribute('aria-describedby', setHint.id);
   setFs.appendChild(setHint);
   container.appendChild(setFs);
 
   // --- Lingua ---
   const langFs = document.createElement('fieldset');
-  langFs.innerHTML = '<legend>Lingua</legend>';
+  // Lingua di interfaccia e voce. Cambiandola la schermata si ricostruisce
+  // nella nuova lingua, e il focus torna su questo menu.
+  langFs.innerHTML = '<legend>Lingua / Language / Idioma / Langue</legend>';
   const langSelect = document.createElement('select');
-  const opt = document.createElement('option');
-  opt.value = 'it';
-  opt.textContent = 'Italiano';
-  langSelect.appendChild(opt);
-  langSelect.disabled = true;
-  langFs.appendChild(fieldRow('Lingua (altre in arrivo)', langSelect));
+  LANGUAGES.forEach(({ value, label }) => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    opt.lang = value;
+    langSelect.appendChild(opt);
+  });
+  langSelect.value = settings.language;
+  langSelect.addEventListener('change', () => {
+    settings.language = langSelect.value;
+    persist();
+    navigate('settings', { focusLanguage: true });
+  });
+  langFs.appendChild(fieldRow('Lingua / Language / Idioma / Langue', langSelect));
   container.appendChild(langFs);
+  if (payload && payload.focusLanguage) {
+    setTimeout(() => {
+      langSelect.focus();
+      ctx.narrator.announce(t('Lingua cambiata: italiano.'));
+    }, 0);
+  }
 
   // --- PGN ---
   const pgnFs = document.createElement('fieldset');
   // Dall'11/11/2026 l'intestazione delle partite salvate è sempre completa
   // (data, set, colore e squadra di ciascuno, avversario, esito, durata):
   // resta da scegliere solo un'eventuale nota libera.
-  pgnFs.innerHTML = '<legend>Partite salvate (PGN)</legend>';
+  pgnFs.innerHTML = `<legend>${t('Partite salvate (PGN)')}</legend>`;
   const pgnInfo = document.createElement('p');
-  pgnInfo.textContent =
-    "Ogni partita salvata riporta sempre data e ora, set di pezzi, con quale colore e quale squadra giocavi, l'avversario, l'esito e la durata. Qui puoi aggiungere una nota che verrà scritta in tutte le partite.";
+  pgnInfo.textContent = t(
+    "Ogni partita salvata riporta sempre data e ora, set di pezzi, con quale colore e quale squadra giocavi, l'avversario, l'esito e la durata. Qui puoi aggiungere una nota che verrà scritta in tutte le partite."
+  );
   pgnFs.appendChild(pgnInfo);
   const notesInput = document.createElement('textarea');
   notesInput.value = settings.pgn.notes;
   notesInput.rows = 2;
-  notesInput.setAttribute('aria-label', 'Note libere');
+  notesInput.setAttribute('aria-label', t('Note libere'));
   notesInput.addEventListener('change', () => {
     settings.pgn.notes = notesInput.value;
     persist();
   });
-  pgnFs.appendChild(fieldRow('Note libere', notesInput));
+  pgnFs.appendChild(fieldRow(t('Note libere'), notesInput));
   container.appendChild(pgnFs);
 
   // --- Informazioni ---
   const infoFs = document.createElement('fieldset');
   infoFs.className = 'info-section';
   infoFs.innerHTML = `
-    <legend>Informazioni</legend>
-    <p>Roberto Lachin, judoka non vedente, conduttore (con Elena Travaini) di Motto Podcast.</p>
+    <legend>${t('Informazioni')}</legend>
+    <p>${t('Roberto Lachin, judoka non vedente, conduttore (con Elena Travaini) di Motto Podcast.')}</p>
     <p><a href="mailto:mottopod@gmail.com">mottopod@gmail.com</a></p>
     <p><a href="https://mottopodcast.org" target="_blank" rel="noopener">mottopodcast.org</a></p>
-    <p><a href="https://www.paypal.me/MottoPodcast" target="_blank" rel="noopener">Sostieni il progetto (PayPal)</a></p>
-    <p>Grazie a Lichess per gli asset grafici dei pezzi (licenza GPL).</p>
+    <p><a href="https://www.paypal.me/MottoPodcast" target="_blank" rel="noopener">${t('Sostieni il progetto (PayPal)')}</a></p>
+    <p>${t('Grazie a Lichess per gli asset grafici dei pezzi (licenza GPL).')}</p>
   `;
   container.appendChild(infoFs);
 

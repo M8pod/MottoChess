@@ -1,8 +1,9 @@
 import { listSavedGames, deleteSavedGame, importPgnText } from '../../pgn/pgn.js';
 import { askConfirmation } from '../modal.js';
+import { t } from '../../i18n/i18n.js';
 
 function plural(n, one, many) {
-  return `${n} ${n === 1 ? one : many}`;
+  return `${n} ${n === 1 ? t(one) : t(many)}`;
 }
 
 export function renderSavedGamesScreen(container, ctx) {
@@ -12,12 +13,12 @@ export function renderSavedGamesScreen(container, ctx) {
   const backBtn = document.createElement('button');
   backBtn.type = 'button';
   backBtn.className = 'back-link';
-  backBtn.textContent = '← Torna al menu';
+  backBtn.textContent = `← ${t('Torna al menu')}`;
   backBtn.addEventListener('click', () => navigate('home'));
   container.appendChild(backBtn);
 
   const h2 = document.createElement('h2');
-  h2.textContent = 'Partite salvate (PGN)';
+  h2.textContent = t('Partite salvate (PGN)');
   container.appendChild(h2);
 
   // Richiesta di Roberto (11/11/2026): le partite di ciascuno restano sue.
@@ -25,19 +26,20 @@ export function renderSavedGamesScreen(container, ctx) {
   // dispositivo (localStorage, vedi pgn/pgn.js): nessun server, nessun invio.
   const privacy = document.createElement('p');
   privacy.className = 'privacy-note';
-  privacy.textContent =
-    'Le partite salvate e quelle importate restano solo su questo dispositivo: non vengono inviate da nessuna parte e nessun altro giocatore può vederle. Se cancelli i dati del sito dal browser, l’archivio si perde: per conservare una partita usa «Scarica .pgn».';
+  privacy.textContent = t(
+    'Le partite salvate e quelle importate restano solo su questo dispositivo: non vengono inviate da nessuna parte e nessun altro giocatore può vederle. Se cancelli i dati del sito dal browser, l’archivio si perde: per conservare una partita usa «Scarica .pgn».'
+  );
   container.appendChild(privacy);
 
   // --- Importazione (la specifica prevede import ED export) ---
   const importFs = document.createElement('fieldset');
   importFs.className = 'import-section';
   const importLegend = document.createElement('legend');
-  importLegend.textContent = 'Importa partite PGN';
+  importLegend.textContent = t('Importa partite PGN');
   importFs.appendChild(importLegend);
 
   const fileLabel = document.createElement('label');
-  fileLabel.textContent = 'Scegli un file .pgn ';
+  fileLabel.textContent = `${t('Scegli un file .pgn')} `;
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = '.pgn,application/x-chess-pgn,application/vnd.chess-pgn,text/plain';
@@ -45,7 +47,7 @@ export function renderSavedGamesScreen(container, ctx) {
   importFs.appendChild(fileLabel);
 
   const pasteLabel = document.createElement('label');
-  pasteLabel.textContent = 'Oppure incolla qui il testo PGN';
+  pasteLabel.textContent = t('Oppure incolla qui il testo PGN');
   const pasteArea = document.createElement('textarea');
   pasteArea.rows = 4;
   pasteLabel.appendChild(pasteArea);
@@ -53,7 +55,7 @@ export function renderSavedGamesScreen(container, ctx) {
 
   const pasteBtn = document.createElement('button');
   pasteBtn.type = 'button';
-  pasteBtn.textContent = 'Importa il testo incollato';
+  pasteBtn.textContent = t('Importa il testo incollato');
   importFs.appendChild(pasteBtn);
 
   // Esito dell'importazione: regione "status", letta dagli screen reader
@@ -67,9 +69,9 @@ export function renderSavedGamesScreen(container, ctx) {
   function reportImport({ imported, failed }) {
     let text;
     if (imported === 0 && failed === 0) {
-      text = 'Nessuna partita trovata nel testo.';
+      text = t('Nessuna partita trovata nel testo.');
     } else if (imported === 0) {
-      text = `Importazione non riuscita: ${plural(failed, 'partita illeggibile', 'partite illeggibili')}.`;
+      text = `${t('Importazione non riuscita:')} ${plural(failed, 'partita illeggibile', 'partite illeggibili')}.`;
     } else {
       text = `${plural(imported, 'partita importata', 'partite importate')}.`;
       if (failed > 0) text += ` ${plural(failed, 'partita scartata perché illeggibile', 'partite scartate perché illeggibili')}.`;
@@ -84,14 +86,14 @@ export function renderSavedGamesScreen(container, ctx) {
     try {
       reportImport(importPgnText(await file.text()));
     } catch {
-      importStatus.textContent = 'Impossibile leggere il file scelto.';
+      importStatus.textContent = t('Impossibile leggere il file scelto.');
     }
     fileInput.value = '';
   });
 
   pasteBtn.addEventListener('click', () => {
     if (!pasteArea.value.trim()) {
-      importStatus.textContent = 'Il campo di testo è vuoto: incolla prima una partita PGN.';
+      importStatus.textContent = t('Il campo di testo è vuoto: incolla prima una partita PGN.');
       pasteArea.focus();
       return;
     }
@@ -101,7 +103,7 @@ export function renderSavedGamesScreen(container, ctx) {
 
   // --- Elenco ---
   const listHeading = document.createElement('h3');
-  listHeading.textContent = 'Archivio';
+  listHeading.textContent = t('Archivio');
   listHeading.setAttribute('tabindex', '-1');
   container.appendChild(listHeading);
 
@@ -111,10 +113,10 @@ export function renderSavedGamesScreen(container, ctx) {
   function renderList() {
     list.innerHTML = '';
     const games = listSavedGames();
-    listHeading.textContent = games.length ? `Archivio (${plural(games.length, 'partita', 'partite')})` : 'Archivio';
+    listHeading.textContent = games.length ? `${t('Archivio')} (${plural(games.length, 'partita', 'partite')})` : t('Archivio');
     if (games.length === 0) {
       const p = document.createElement('p');
-      p.textContent = 'Nessuna partita salvata finora.';
+      p.textContent = t('Nessuna partita salvata finora.');
       list.appendChild(p);
       return;
     }
@@ -141,19 +143,19 @@ export function renderSavedGamesScreen(container, ctx) {
       // Riproduzione sulla scacchiera con suoni e narrazione (11/11/2026).
       const replayBtn = document.createElement('button');
       replayBtn.type = 'button';
-      replayBtn.textContent = 'Riproduci sulla scacchiera';
-      replayBtn.setAttribute('aria-label', `Riproduci sulla scacchiera, ${game.label}`);
+      replayBtn.textContent = t('Riproduci sulla scacchiera');
+      replayBtn.setAttribute('aria-label', `${t('Riproduci sulla scacchiera')}, ${game.label}`);
       replayBtn.addEventListener('click', () => navigate('replay', { gameId: game.id }));
 
       const viewBtn = document.createElement('button');
       viewBtn.type = 'button';
-      viewBtn.textContent = 'Visualizza PGN';
+      viewBtn.textContent = t('Visualizza PGN');
       viewBtn.setAttribute('aria-expanded', 'false');
 
       const downloadBtn = document.createElement('button');
       downloadBtn.type = 'button';
-      downloadBtn.textContent = 'Scarica .pgn';
-      downloadBtn.setAttribute('aria-label', `Scarica .pgn, ${game.label}`);
+      downloadBtn.textContent = t('Scarica .pgn');
+      downloadBtn.setAttribute('aria-label', `${t('Scarica .pgn')}, ${game.label}`);
       downloadBtn.addEventListener('click', () => {
         const blob = new Blob([game.pgn], { type: 'application/x-chess-pgn' });
         const url = URL.createObjectURL(blob);
@@ -168,19 +170,19 @@ export function renderSavedGamesScreen(container, ctx) {
 
       const deleteBtn = document.createElement('button');
       deleteBtn.type = 'button';
-      deleteBtn.textContent = 'Elimina';
-      deleteBtn.setAttribute('aria-label', `Elimina, ${game.label}`);
+      deleteBtn.textContent = t('Elimina');
+      deleteBtn.setAttribute('aria-label', `${t('Elimina')}, ${game.label}`);
       deleteBtn.addEventListener('click', async () => {
         const confirmed = await askConfirmation({
-          titleText: 'Eliminare questa partita?',
-          bodyText: `${game.label}. L'operazione non si può annullare.`,
-          confirmLabel: 'Elimina',
-          cancelLabel: 'Annulla',
+          titleText: t('Eliminare questa partita?'),
+          bodyText: `${game.label}. ${t("L'operazione non si può annullare.")}`,
+          confirmLabel: t('Elimina'),
+          cancelLabel: t('Annulla'),
         });
         if (!confirmed) return;
         deleteSavedGame(game.id);
         renderList();
-        narrator.announce('Partita eliminata.');
+        narrator.announce(t('Partita eliminata.'));
         // Il pulsante premuto non esiste più: il focus va sulla partita che
         // ha preso il suo posto (o sulla precedente, o sul titolo
         // dell'archivio), invece di perdersi in cima alla pagina.
@@ -200,11 +202,11 @@ export function renderSavedGamesScreen(container, ctx) {
         textarea = document.createElement('textarea');
         textarea.readOnly = true;
         textarea.value = game.pgn;
-        textarea.setAttribute('aria-label', `PGN di ${game.label}`);
+        textarea.setAttribute('aria-label', `PGN: ${game.label}`);
         item.appendChild(textarea);
         viewBtn.setAttribute('aria-expanded', 'true');
       });
-      viewBtn.setAttribute('aria-label', `Visualizza PGN, ${game.label}`);
+      viewBtn.setAttribute('aria-label', `${t('Visualizza PGN')}, ${game.label}`);
 
       btnRow.append(replayBtn, viewBtn, downloadBtn, deleteBtn);
       item.appendChild(btnRow);

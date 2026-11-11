@@ -1,5 +1,6 @@
 // pgn: import/export PGN, inclusi tag metadati opzionali (vedi Impostazioni).
 import { Chess } from '../vendor/chess.js';
+import { t, getLanguage } from '../i18n/i18n.js';
 
 const STORAGE_KEY = 'mottochess.savedGames.v1';
 
@@ -32,11 +33,67 @@ function pgnTime(d) {
 
 const COLOR_NAME = { w: 'Bianco', b: 'Nero' };
 
+// Nomi delle fazioni per le intestazioni (i file e il codice usano quelli
+// italiani).
+const FACTION_EN = { gatti: 'cats', cani: 'dogs' };
+const FACTION_ES = { gatti: 'gatos', cani: 'perros' };
+const FACTION_FR = { gatti: 'chats', cani: 'chiens' };
+
 function factionPhrase(faction) {
-  return faction ? `, con i ${faction}` : '';
+  if (!faction) return '';
+  if (getLanguage() === 'en') return `, playing the ${FACTION_EN[faction] || faction}`;
+  if (getLanguage() === 'es') return `, con los ${FACTION_ES[faction] || faction}`;
+  if (getLanguage() === 'fr') return `, avec les ${FACTION_FR[faction] || faction}`;
+  return `, con i ${faction}`;
+}
+
+// Nomi dei tag PGN personalizzati in ciascuna lingua (la riproduzione li
+// riconosce tutti, vedi PGN_TAG_NAMES).
+export const PGN_TAG_NAMES = {
+  Giocatore: { en: 'Player', es: 'Jugador', fr: 'Joueur' },
+  Avversario: { en: 'Opponent', es: 'Rival', fr: 'Adversaire' },
+  Esito: { en: 'Outcome', es: 'Resultado', fr: 'Issue' },
+  Tempo: { en: 'Clock', es: 'Reloj', fr: 'Pendule' },
+  Durata: { en: 'Duration', es: 'Duracion', fr: 'Duree' },
+  Mosse: { en: 'Moves', es: 'Jugadas', fr: 'Coups' },
+};
+
+// Valore di un tag personalizzato, in qualunque lingua sia stato scritto.
+export function readPgnTag(headers, italianName) {
+  if (headers[italianName]) return headers[italianName];
+  const names = PGN_TAG_NAMES[italianName] || {};
+  const found = Object.values(names).find((n) => headers[n]);
+  return found ? headers[found] : undefined;
 }
 
 function durationText(ms) {
+  if (getLanguage() === 'fr') {
+    if (ms < 60000) return "moins d'une minute";
+    const totalMin = Math.round(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    const hp = h ? `${h} heure${h === 1 ? '' : 's'}` : '';
+    const mp = m ? `${m} minute${m === 1 ? '' : 's'}` : '';
+    return hp && mp ? `${hp} et ${mp}` : hp || mp;
+  }
+  if (getLanguage() === 'es') {
+    if (ms < 60000) return 'menos de un minuto';
+    const totalMin = Math.round(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    const hp = h ? `${h} hora${h === 1 ? '' : 's'}` : '';
+    const mp = m ? `${m} minuto${m === 1 ? '' : 's'}` : '';
+    return hp && mp ? `${hp} y ${mp}` : hp || mp;
+  }
+  if (getLanguage() === 'en') {
+    if (ms < 60000) return 'less than a minute';
+    const totalMin = Math.round(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    const hp = h ? `${h} hour${h === 1 ? '' : 's'}` : '';
+    const mp = m ? `${m} minute${m === 1 ? '' : 's'}` : '';
+    return hp && mp ? `${hp} and ${mp}` : hp || mp;
+  }
   if (ms < 60000) return 'meno di un minuto';
   const totalMin = Math.round(ms / 60000);
   const h = Math.floor(totalMin / 60);
@@ -49,18 +106,18 @@ function durationText(ms) {
 // Esito dal punto di vista del giocatore, in parole: è la riga che si sente
 // per prima con VoiceOver aprendo una partita salvata.
 export function outcomeTexts(outcome, playerColor) {
-  if (!outcome) return { termination: 'Partita interrotta', esito: 'Partita interrotta, senza risultato' };
-  const won = (c) => (c === playerColor ? 'Hai vinto' : 'Hai perso');
+  if (!outcome) return { termination: t('Partita interrotta'), esito: t('Partita interrotta, senza risultato') };
+  const won = (c, why) => t(c === playerColor ? 'Hai vinto per {why}' : 'Hai perso per {why}', { why: t(why) });
   switch (outcome.kind) {
     case 'checkmate':
-      return { termination: 'Scacco matto', esito: `${won(outcome.winner)} per scacco matto` };
+      return { termination: t('Scacco matto'), esito: won(outcome.winner, 'scacco matto') };
     case 'timeout': {
       const winner = outcome.loser === 'w' ? 'b' : 'w';
-      return { termination: 'Tempo scaduto', esito: `${won(winner)} per tempo scaduto` };
+      return { termination: t('Tempo scaduto'), esito: won(winner, 'tempo scaduto') };
     }
     case 'resign': {
       const winner = outcome.loser === 'w' ? 'b' : 'w';
-      return { termination: 'Abbandono', esito: `${won(winner)} per abbandono` };
+      return { termination: t('Abbandono'), esito: won(winner, 'abbandono') };
     }
     case 'draw': {
       const why = {
@@ -69,10 +126,11 @@ export function outcomeTexts(outcome, playerColor) {
         fifty: 'regola delle cinquanta mosse',
         insufficient: 'materiale insufficiente',
       }[outcome.reason] || 'accordo';
-      return { termination: `Patta per ${why}`, esito: `Patta per ${why}` };
+      const text = t('Patta per {why}', { why: t(why) });
+      return { termination: text, esito: text };
     }
     default:
-      return { termination: 'Sconosciuta', esito: 'Esito sconosciuto' };
+      return { termination: t('Sconosciuta'), esito: t('Esito sconosciuto') };
   }
 }
 
@@ -87,7 +145,14 @@ export function outcomeTexts(outcome, playerColor) {
 export function applyPgnMetadata(gameCore, { session, pgnOptions = {}, result, outcome = null, endedAt = Date.now() }) {
   const me = session.color;
   const opp = me === 'w' ? 'b' : 'w';
-  const engineName = `Stockfish livello ${session.level}` + (session.levelElo ? ` (circa ${session.levelElo} Elo)` : '');
+  const engineName =
+    t('Stockfish livello {level}', { level: session.level }) +
+    (session.levelElo ? ` ${t('(circa {elo} Elo)', { elo: session.levelElo })}` : '');
+  // Tag personalizzati leggibili a voce, nella lingua della partita. La
+  // riproduzione riconosce entrambe le versioni.
+  const lang = getLanguage();
+  const tag = (it) => (PGN_TAG_NAMES[it] && PGN_TAG_NAMES[it][lang]) || it;
+  const playerName = t('Giocatore');
   const factions = session.factions || {};
   const start = new Date(session.startedAt || endedAt);
   const end = new Date(endedAt);
@@ -101,24 +166,24 @@ export function applyPgnMetadata(gameCore, { session, pgnOptions = {}, result, o
     Site: 'Motto Chess',
     Date: pgnDate(start),
     Round: '-',
-    White: me === 'w' ? 'Giocatore' : engineName,
-    Black: me === 'b' ? 'Giocatore' : engineName,
+    White: me === 'w' ? playerName : engineName,
+    Black: me === 'b' ? playerName : engineName,
     Result: result || '*',
-    Set: session.pieceSetLabel || 'Classico',
-    Giocatore: `${COLOR_NAME[me]}${factionPhrase(factions[me])}`,
-    Avversario: `${engineName}, ${COLOR_NAME[opp]}${factionPhrase(factions[opp])}`,
-    Esito: esito,
+    Set: session.pieceSetLabel || t('Classico'),
+    [tag('Giocatore')]: `${t(COLOR_NAME[me])}${factionPhrase(factions[me])}`,
+    [tag('Avversario')]: `${engineName}, ${t(COLOR_NAME[opp])}${factionPhrase(factions[opp])}`,
+    [tag('Esito')]: esito,
     Termination: termination,
     TimeControl: tc,
-    Tempo: session.timeEnabled
-      ? `${session.minutes} minuti per giocatore, ${session.incrementSec || 0} secondi di incremento`
-      : 'senza orologio',
+    [tag('Tempo')]: session.timeEnabled
+      ? t('{min} minuti per giocatore, {inc} secondi di incremento', { min: session.minutes, inc: session.incrementSec || 0 })
+      : t('senza orologio'),
     StartTime: pgnTime(start),
   };
   if (pgnDate(end) !== pgnDate(start)) headers.EndDate = pgnDate(end);
   headers.EndTime = pgnTime(end);
-  headers.Durata = durationText(end - start);
-  headers.Mosse = String(Math.ceil(gameCore.chess.history().length / 2));
+  headers[tag('Durata')] = durationText(end - start);
+  headers[tag('Mosse')] = String(Math.ceil(gameCore.chess.history().length / 2));
   if (pgnOptions.notes && pgnOptions.notes.trim()) {
     // Tag dedicato: "Annotator" in PGN indica chi ha commentato la partita,
     // non delle note libere.
@@ -189,11 +254,11 @@ function labelForImported(chess, index) {
   const known = (v) => v && v !== '?' && !/^\?+(\.\?+)*$/.test(v);
   const parts = [];
   if (known(h.White) || known(h.Black)) {
-    parts.push(`${known(h.White) ? h.White : '?'} contro ${known(h.Black) ? h.Black : '?'}`);
+    parts.push(`${known(h.White) ? h.White : '?'} ${t('contro')} ${known(h.Black) ? h.Black : '?'}`);
   }
   if (known(h.Date)) parts.push(h.Date);
   if (known(h.Result) && h.Result !== '*') parts.push(`(${h.Result})`);
-  return parts.length ? `Importata: ${parts.join(' ')}` : `Partita importata ${index + 1}`;
+  return parts.length ? `${t('Importata:')} ${parts.join(' ')}` : t('Partita importata {n}', { n: index + 1 });
 }
 
 // Ritorna { imported, failed }: le partite valide vengono aggiunte

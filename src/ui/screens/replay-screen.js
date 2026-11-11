@@ -13,12 +13,12 @@
 // ("Giocatore" come White o Black), altrimenti dal lato del bianco.
 import { Chess } from '../../vendor/chess.js';
 import { GameCore } from '../../game-core/game-core.js';
-import { listSavedGames } from '../../pgn/pgn.js';
-import { moveToCompactText, moveToExpandedText, promotionConfirmationText, sanToSpeech } from '../../themes/i18n-voice.js';
-import { LIGHT_SQUARE_COLORS, DARK_SQUARE_COLORS, PIECE_SET_SQUARE_COLORS } from '../../session/settings.js';
+import { listSavedGames, readPgnTag } from '../../pgn/pgn.js';
+import { moveToCompactText, moveToExpandedText, promotionConfirmationText, sanToSpeech, colorName } from '../../themes/i18n-voice.js';
+import { t } from '../../i18n/i18n.js';
 import { factionsByColor } from '../../themes/factions.js';
-import { PIECE_SET_CHOICES, pieceSetLabel } from '../../themes/pieces.js';
-import { pieceFillFromSquareColor } from '../color-utils.js';
+import { PIECE_SET_CHOICES, pieceSetLabel, pieceSetLabelsAllLanguages } from '../../themes/pieces.js';
+import { boardColorsFor } from '../board-colors.js';
 import { BoardView } from '../board.js';
 
 const SPEEDS = [
@@ -27,7 +27,8 @@ const SPEEDS = [
   { value: 'veloce', label: 'Veloce (una mossa ogni 3 secondi)', ms: 3000 },
 ];
 const SPEED_KEY = 'mottochess.replaySpeed';
-const COLOR_IT = { w: 'bianco', b: 'nero' };
+// Nome del colore nella lingua scelta.
+const COLOR_IT = { get w() { return colorName('w'); }, get b() { return colorName('b'); } };
 
 // Dal nome del set scritto nel PGN alla chiave interna. Accetta sia il tag
 // nuovo ("Cani vs Gatti") sia il vecchio SetName ("Cani vs Gatti (giocatore:
@@ -37,16 +38,20 @@ export function pieceSetFromHeaders(headers) {
   if (!raw) return 'classico';
   const match = PIECE_SET_CHOICES.find((c) => {
     if (!c.available) return false;
-    const label = c.label.toLowerCase();
-    const short = label.split(' (')[0];
-    return raw === label || raw.startsWith(short) || raw === c.value;
+    if (raw === c.value) return true;
+    return pieceSetLabelsAllLanguages(c).some((name) => {
+      const label = name.toLowerCase();
+      const short = label.split(' (')[0];
+      return raw === label || raw.startsWith(short);
+    });
   });
   return match ? match.value : 'classico';
 }
 
 function playerColorFromHeaders(headers) {
-  if (headers.White === 'Giocatore') return 'w';
-  if (headers.Black === 'Giocatore') return 'b';
+  const playerNames = ['Giocatore', 'Player', 'Jugador', 'Joueur'];
+  if (playerNames.includes(headers.White)) return 'w';
+  if (playerNames.includes(headers.Black)) return 'b';
   return null;
 }
 
@@ -90,17 +95,17 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
   const backBtn = document.createElement('button');
   backBtn.type = 'button';
   backBtn.className = 'back-link';
-  backBtn.textContent = '← Torna alle partite salvate';
+  backBtn.textContent = `← ${t('Torna alle partite salvate')}`;
   backBtn.addEventListener('click', () => navigate('saved'));
   container.appendChild(backBtn);
 
   const h2 = document.createElement('h2');
-  h2.textContent = 'Riproduzione partita';
+  h2.textContent = t('Riproduzione partita');
   container.appendChild(h2);
 
   if (!data) {
     const p = document.createElement('p');
-    p.textContent = 'Questa partita non si può riprodurre: il file PGN non è leggibile.';
+    p.textContent = t('Questa partita non si può riprodurre: il file PGN non è leggibile.');
     container.appendChild(p);
     return { destroy() {} };
   }
@@ -116,13 +121,16 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
   summary.className = 'replay-summary';
   const lines = [game.label];
   const known = (v) => v && v !== '?' && v !== '-';
-  if (known(headers.Giocatore)) lines.push(`Giocatore: ${headers.Giocatore}.`);
-  if (known(headers.Avversario)) lines.push(`Avversario: ${headers.Avversario}.`);
-  if (!known(headers.Giocatore) && (known(headers.White) || known(headers.Black))) {
-    lines.push(`Bianco: ${known(headers.White) ? headers.White : 'sconosciuto'}. Nero: ${known(headers.Black) ? headers.Black : 'sconosciuto'}.`);
+  const playerTag = readPgnTag(headers, 'Giocatore');
+  const opponentTag = readPgnTag(headers, 'Avversario');
+  if (known(playerTag)) lines.push(`${t('Giocatore')}: ${playerTag}.`);
+  if (known(opponentTag)) lines.push(`${t('Avversario')}: ${opponentTag}.`);
+  if (!known(playerTag) && (known(headers.White) || known(headers.Black))) {
+    const unknown = t('sconosciuto');
+    lines.push(`${t('Bianco')}: ${known(headers.White) ? headers.White : unknown}. ${t('Nero')}: ${known(headers.Black) ? headers.Black : unknown}.`);
   }
-  lines.push(`Set di pezzi: ${pieceSetLabel(pieceSet)}.`);
-  lines.push(`${sans.length} semimosse in tutto.`);
+  lines.push(`${t('Set di pezzi')}: ${pieceSetLabel(pieceSet)}.`);
+  lines.push(t('{n} semimosse in tutto.', { n: sans.length }));
   lines.forEach((t) => {
     const p = document.createElement('p');
     p.textContent = t;
@@ -151,21 +159,21 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
     controls.appendChild(b);
     return b;
   };
-  const playBtn = mkBtn('Riproduci');
-  const prevBtn = mkBtn('Mossa precedente');
-  const nextBtn = mkBtn('Mossa successiva');
-  const startBtn = mkBtn("Torna all'inizio");
-  const endBtn = mkBtn('Vai alla fine');
+  const playBtn = mkBtn(t('Riproduci'));
+  const prevBtn = mkBtn(t('Mossa precedente'));
+  const nextBtn = mkBtn(t('Mossa successiva'));
+  const startBtn = mkBtn(t("Torna all'inizio"));
+  const endBtn = mkBtn(t('Vai alla fine'));
   container.appendChild(controls);
 
   const speedLabel = document.createElement('label');
   speedLabel.className = 'field';
-  speedLabel.textContent = 'Velocità ';
+  speedLabel.textContent = `${t('Velocità')} `;
   const speedSelect = document.createElement('select');
   SPEEDS.forEach((s) => {
     const o = document.createElement('option');
     o.value = s.value;
-    o.textContent = s.label;
+    o.textContent = t(s.label);
     speedSelect.appendChild(o);
   });
   speedSelect.value = readSpeed();
@@ -185,14 +193,7 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
   let destroyed = false;
 
   function currentColors() {
-    const setColors = PIECE_SET_SQUARE_COLORS[pieceSet];
-    const lightHex = LIGHT_SQUARE_COLORS[setColors ? setColors.light : settings.lightSquareColorName];
-    const darkHex = DARK_SQUARE_COLORS[setColors ? setColors.dark : settings.darkSquareColorName];
-    return {
-      lightHex,
-      darkHex,
-      pieceColors: { w: pieceFillFromSquareColor(lightHex, 'w'), b: pieceFillFromSquareColor(darkHex, 'b') },
-    };
+    return boardColorsFor(settings, pieceSet);
   }
 
   function moveLabel(index) {
@@ -207,10 +208,16 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
 
   function updatePositionText() {
     if (ply === 0) {
-      position.textContent = `Posizione iniziale. ${sans.length} semimosse da riprodurre.`;
+      position.textContent = t('Posizione iniziale. {n} semimosse da riprodurre.', { n: sans.length });
     } else {
       const { n, color } = moveLabel(ply - 1);
-      position.textContent = `Semimossa ${ply} di ${sans.length}: mossa ${n} del ${COLOR_IT[color]}, ${sanToSpeech(sans[ply - 1])}.`;
+      position.textContent = t('Semimossa {ply} di {total}: mossa {n} del {color}, {move}.', {
+        ply,
+        total: sans.length,
+        n,
+        color: COLOR_IT[color],
+        move: sanToSpeech(sans[ply - 1]),
+      });
     }
     prevBtn.disabled = ply === 0;
     startBtn.disabled = ply === 0;
@@ -248,27 +255,38 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
       const probe = new Chess(startFen || undefined);
       try {
         sans.forEach((san) => probe.move(san));
-        if (probe.isCheckmate()) reason = 'per scacco matto';
-        else if (probe.isStalemate()) reason = 'per stallo';
+        if (probe.isCheckmate()) reason = t('per scacco matto');
+        else if (probe.isStalemate()) reason = t('per stallo');
       } catch {
         // mosse non rigiocabili: nessun motivo
       }
     } else if (reason === 'scacco matto' || reason === 'tempo scaduto' || reason === 'abbandono') {
-      reason = `per ${reason}`;
+      reason = t(`per ${reason}`);
+    } else if (reason === 'checkmate' || reason === 'time forfeit' || reason === 'resignation') {
+      reason = `by ${reason}`;
+    } else if (reason === 'jaque mate' || reason === 'tiempo agotado' || reason === 'abandono') {
+      reason = `por ${reason}`;
+    } else if (reason === 'échec et mat' || reason === 'temps écoulé' || reason === 'abandon') {
+      reason = `par ${reason}`;
     }
     let text;
     let key = null;
     let winner = null;
     if (result === '1-0') winner = 'w';
     if (result === '0-1') winner = 'b';
-    if (headers.Esito && headers.Esito !== '?') {
-      text = `Fine della partita. ${headers.Esito}.`;
+    const outcomeTag = readPgnTag(headers, 'Esito');
+    const endOf = t('Fine della partita.');
+    if (outcomeTag && outcomeTag !== '?') {
+      text = `${endOf} ${outcomeTag}.`;
     } else if (winner) {
-      text = `Fine della partita. Vince il ${COLOR_IT[winner]}${reason ? ` ${reason}` : ''}.`;
+      text = `${endOf} ${t('Vince il {color}', { color: COLOR_IT[winner] })}${reason ? ` ${reason}` : ''}.`;
     } else if (result === '1/2-1/2') {
-      text = reason.startsWith('patta') ? `Fine della partita. ${reason[0].toUpperCase()}${reason.slice(1)}.` : `Fine della partita. Patta${reason ? ` ${reason}` : ''}.`;
+      const drawWord = t('patta');
+      text = reason.startsWith(drawWord)
+        ? `${endOf} ${reason[0].toUpperCase()}${reason.slice(1)}.`
+        : `${endOf} ${t('Patta')}${reason ? ` ${reason}` : ''}.`;
     } else {
-      text = 'Fine delle mosse registrate: partita senza risultato.';
+      text = t('Fine delle mosse registrate: partita senza risultato.');
     }
     if (result === '1/2-1/2') key = 'outcome_draw';
     else if (winner) {
@@ -298,7 +316,7 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
       settings.narrationStyle === 'compatto'
         ? moveToCompactText(moveObj, { announceMate: true })
         : moveToExpandedText(moveObj, { isCheck: status.isCheck, isCheckmate: status.isCheckmate });
-    const mateText = status.isCheckmate && settings.narrationStyle !== 'compatto' ? ', scacco matto' : '';
+    const mateText = status.isCheckmate && settings.narrationStyle !== 'compatto' ? `, ${t('scacco matto')}` : '';
     narrator.announce(`${n}, ${COLOR_IT[color]}: ${moveText}${mateText}`);
     if (status.isCheck && !status.isCheckmate) sound.playGame('check', ctx);
     if (moveObj.isPromotion()) {
@@ -324,10 +342,10 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
     sound.playGame('deselect', soundCtx(undone ? undone.color : orientation, null));
     await render();
     if (ply === 0) {
-      narrator.announce('Indietro. Posizione iniziale.');
+      narrator.announce(t('Indietro. Posizione iniziale.'));
     } else {
       const { n, color } = moveLabel(ply - 1);
-      narrator.announce(`Indietro. Ultima mossa giocata: ${n}, ${COLOR_IT[color]}, ${sanToSpeech(sans[ply - 1])}.`);
+      narrator.announce(t('Indietro. Ultima mossa giocata: {n}, {color}, {move}.', { n, color: COLOR_IT[color], move: sanToSpeech(sans[ply - 1]) }));
     }
   }
 
@@ -364,11 +382,11 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
 
   function setPlaying(on, { silent = false } = {}) {
     playing = on;
-    playBtn.textContent = on ? 'Pausa' : 'Riproduci';
+    playBtn.textContent = on ? t('Pausa') : t('Riproduci');
     playBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
     if (!on) {
       clearTimer();
-      if (!silent) narrator.announce('Pausa.');
+      if (!silent) narrator.announce(t('Pausa.'));
     }
   }
 
@@ -378,7 +396,7 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
       return;
     }
     if (ply >= sans.length) {
-      await goTo(0, 'Si riparte dalla posizione iniziale.');
+      await goTo(0, t('Si riparte dalla posizione iniziale.'));
     }
     setPlaying(true);
     // La prima mossa parte subito: aspettare l'intervallo intero dopo aver
@@ -397,11 +415,11 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
   });
   startBtn.addEventListener('click', async () => {
     setPlaying(false, { silent: true });
-    await goTo(0, 'Posizione iniziale.');
+    await goTo(0, t('Posizione iniziale.'));
   });
   endBtn.addEventListener('click', async () => {
     setPlaying(false, { silent: true });
-    await goTo(sans.length, `Posizione finale, dopo ${sans.length} semimosse.`);
+    await goTo(sans.length, t('Posizione finale, dopo {n} semimosse.', { n: sans.length }));
     const end = outcomeAnnouncement();
     narrator.announce(end.text);
   });
@@ -410,7 +428,10 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
   render().then(() => {
     if (destroyed) return;
     narrator.announce(
-      `Partita pronta da riprodurre, ${sans.length} semimosse, set ${pieceSetLabel(pieceSet)}. Usa Riproduci, oppure Mossa successiva per andare avanti una mossa alla volta.`
+      t('Partita pronta da riprodurre, {n} semimosse, set {set}. Usa Riproduci, oppure Mossa successiva per andare avanti una mossa alla volta.', {
+        n: sans.length,
+        set: pieceSetLabel(pieceSet),
+      })
     );
   });
 
