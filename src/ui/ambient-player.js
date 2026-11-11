@@ -2,28 +2,22 @@
 // volume indipendente dai suoni di gioco/UI (SoundManager), pensato per una
 // singola traccia alla volta che parte con l'inizio partita e si ferma a
 // fine partita/uscita dalla schermata.
+//
+// La traccia resta un elemento <audio> in streaming (decodificarla tutta in
+// memoria costerebbe decine di MB), ma il suo segnale passa da un GainNode
+// della Web Audio API: su iOS è l'unico modo perché il volume impostato
+// venga rispettato (Safari ignora <audio>.volume). Senza Web Audio si
+// ripiega su <audio>.volume, che funziona su tutti gli altri sistemi.
 import { AMBIENT_TRACKS } from '../session/settings.js';
+import { getAudioContext, resumeAudioContext, perceptualGain } from './audio-context.js';
 
 const AMBIENT_BASE = 'assets/sounds/ambient/';
-
-// L'orecchio percepisce il volume in scala logaritmica, ma <audio>.volume è
-// un'ampiezza lineare: usando lo slider (0-1) direttamente come volume, gran
-// parte della corsa suona quasi invariata e solo l'ultimo tratto vicino allo
-// zero si sente davvero abbassarsi. Per far sì che abbassare lo slider
-// abbassi davvero quel che si sente, mappiamo lo slider su una curva "audio
-// taper": lineare in dB (range di TAPER_RANGE_DB) invece che in ampiezza.
-const TAPER_RANGE_DB = 40;
-
-function perceptualGain(value) {
-  const v = Math.max(0, Math.min(1, value));
-  if (v <= 0) return 0;
-  const db = TAPER_RANGE_DB * (v - 1);
-  return Math.pow(10, db / 20);
-}
 
 export class AmbientPlayer {
   constructor() {
     this.audio = null;
+    this.source = null;
+    this.gain = null;
   }
 
   // trackKey: chiave in AMBIENT_TRACKS (es. 'nessuna', 'newage')
@@ -34,23 +28,47 @@ export class AmbientPlayer {
     try {
       this.audio = new Audio(AMBIENT_BASE + track.file);
       this.audio.loop = true;
-      this.audio.volume = perceptualGain(volume);
+      const ctx = getAudioContext();
+      if (ctx && typeof ctx.createMediaElementSource === 'function') {
+        resumeAudioContext();
+        this.source = ctx.createMediaElementSource(this.audio);
+        this.gain = ctx.createGain();
+        this.source.connect(this.gain).connect(ctx.destination);
+      }
+      this.setVolume(volume);
       this.audio.play().catch(() => {});
     } catch {
       // riproduzione audio non disponibile: non blocca la partita
-      this.audio = null;
+      this.stop();
     }
   }
 
   setVolume(volume) {
-    if (this.audio) this.audio.volume = perceptualGain(volume);
+    const g = perceptualGain(volume);
+    if (this.gain) {
+      this.gain.gain.value = g;
+    } else if (this.audio) {
+      this.audio.volume = g;
+    }
   }
 
   stop() {
     if (this.audio) {
       this.audio.pause();
-      this.audio.currentTime = 0;
-      this.audio = null;
+      try {
+        this.audio.currentTime = 0;
+      } catch {
+        // niente da riavvolgere
+      }
     }
+    try {
+      if (this.source) this.source.disconnect();
+      if (this.gain) this.gain.disconnect();
+    } catch {
+      // già scollegati
+    }
+    this.audio = null;
+    this.source = null;
+    this.gain = null;
   }
 }

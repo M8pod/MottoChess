@@ -37,6 +37,7 @@ export class BoardView {
 
     const ranks = orientation === 'w' ? [8, 7, 6, 5, 4, 3, 2, 1] : [1, 2, 3, 4, 5, 6, 7, 8];
     const files = orientation === 'w' ? FILES : [...FILES].reverse();
+    this.visualGrid = ranks.map((rank) => files.map((file) => `${file}${rank}`));
 
     for (const rank of ranks) {
       const rowEl = document.createElement('div');
@@ -57,6 +58,37 @@ export class BoardView {
       this.container.appendChild(rowEl);
     }
     this.orientation = orientation;
+
+    // Navigazione da tastiera fisica (frecce, Home/Fine): la scacchiera si
+    // dichiara "griglia" agli screen reader, e chi la esplora da tastiera si
+    // aspetta di potersi muovere con le frecce come in qualsiasi griglia.
+    // Le direzioni seguono la scacchiera COME SI VEDE (orientamento compreso):
+    // freccia su = verso il lato dell'avversario. Con VoiceOver le frecce
+    // arrivano qui solo con la Navigazione rapida disattivata, altrimenti le
+    // gestisce VoiceOver stesso: nessun conflitto.
+    if (!this._keyListener) {
+      this._keyListener = (e) => this._onKeyDown(e);
+      this.container.addEventListener('keydown', this._keyListener);
+    }
+  }
+
+  _onKeyDown(e) {
+    const square = e.target && e.target.dataset ? e.target.dataset.square : null;
+    if (!square || !this.visualGrid) return;
+    let row = this.visualGrid.findIndex((r) => r.includes(square));
+    let col = this.visualGrid[row].indexOf(square);
+    switch (e.key) {
+      case 'ArrowUp': row = Math.max(0, row - 1); break;
+      case 'ArrowDown': row = Math.min(7, row + 1); break;
+      case 'ArrowLeft': col = Math.max(0, col - 1); break;
+      case 'ArrowRight': col = Math.min(7, col + 1); break;
+      case 'Home': col = 0; if (e.ctrlKey) row = 0; break;
+      case 'End': col = 7; if (e.ctrlKey) row = 7; break;
+      default: return;
+    }
+    e.preventDefault();
+    const target = this.buttons.get(this.visualGrid[row][col]);
+    if (target) target.focus();
   }
 
   // state:

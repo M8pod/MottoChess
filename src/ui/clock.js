@@ -16,6 +16,26 @@ export class ChessClock {
     this.callbacks = callbacks;
   }
 
+  // Ripristina lo stato di una partita ripresa. Gli avvisi già superati non
+  // vengono ripetuti: chi riprende una partita al 7% del tempo non deve
+  // risentire "tempo in esaurimento" come se fosse una novità.
+  restore({ remaining, elapsedMs = 0 }) {
+    if (remaining && typeof remaining.w === 'number' && typeof remaining.b === 'number') {
+      this.remaining = { w: Math.max(0, remaining.w), b: Math.max(0, remaining.b) };
+    }
+    ['w', 'b'].forEach((side) => {
+      const pct = this.remaining[side] / this.totalMs;
+      this.warned10[side] = pct <= 0.1;
+      this.warned5[side] = pct <= 0.05;
+    });
+    this.elapsedMs = Math.max(0, elapsedMs);
+    this.nextElapsedMarkMs = (Math.floor(this.elapsedMs / 600000) + 1) * 600000;
+  }
+
+  snapshot() {
+    return { remaining: { ...this.remaining }, elapsedMs: this.elapsedMs };
+  }
+
   start(side) {
     this.running = side;
     this._lastTs = performance.now();
