@@ -110,3 +110,5 @@ if ('serviceWorker' in navigator) {
 }
 
 navigate('home');
+// Segnale per la rete di sicurezza in index.html: l'app è partita.
+window.__mottoStarted = true;
