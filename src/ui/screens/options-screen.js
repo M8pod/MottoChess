@@ -2,7 +2,7 @@ import { loadLastConfig, saveLastConfig } from '../../session/options.js';
 import { eloForLevel } from '../../engine/engine.js';
 import { AMBIENT_TRACKS } from '../../session/settings.js';
 import { factionSet, resolveFaction } from '../../themes/factions.js';
-import { hasPlaceholderArt } from '../../themes/pieces.js';
+import { hasPlaceholderArt, PIECE_SET_CHOICES } from '../../themes/pieces.js';
 import { AmbientPlayer } from '../ambient-player.js';
 
 const MINUTE_OPTIONS = [10, 15, 20, 30, 45, 60, 90, 120];
@@ -32,8 +32,8 @@ function resolveColor(choice) {
 }
 
 export function renderOptionsScreen(container, ctx) {
-  const { sound, navigate, settings } = ctx;
-  const config = loadLastConfig();
+  const { navigate, settings } = ctx;
+  const config = loadLastConfig(settings.defaultPieceSet);
   const ambientPreview = new AmbientPlayer();
 
   container.innerHTML = '';
@@ -113,7 +113,7 @@ export function renderOptionsScreen(container, ctx) {
   for (let level = 1; level <= 20; level++) {
     const opt = document.createElement('option');
     opt.value = String(level);
-    opt.textContent = `${level} — ${labelForLevel(level)} (Elo ${eloForLevel(level)})`;
+    opt.textContent = `${level} — ${labelForLevel(level)} (circa ${eloForLevel(level)} Elo)`;
     if (level === config.level) opt.selected = true;
     levelSelect.appendChild(opt);
   }
@@ -128,13 +128,7 @@ export function renderOptionsScreen(container, ctx) {
   const setLegend = document.createElement('legend');
   setLegend.textContent = 'Set pezzi tematico';
   setFieldset.appendChild(setLegend);
-  const themes = [
-    { value: 'classico', label: 'Classico', available: true },
-    { value: 'judo', label: 'Judo (judogi bianco e blu)', available: true },
-    { value: 'samurai-ninja', label: 'Samurai vs Ninja (in arrivo)', available: false },
-    { value: 'cani-gatti', label: 'Cani vs Gatti', available: true },
-  ];
-  themes.forEach((theme) => {
+  PIECE_SET_CHOICES.forEach((theme) => {
     const label = document.createElement('label');
     const radio = document.createElement('input');
     radio.type = 'radio';
@@ -203,23 +197,39 @@ export function renderOptionsScreen(container, ctx) {
   }
   renderFactionChoice();
 
-  // Colore
+  // Colore: scelta davvero obbligatoria, come da specifica. Prima "Casuale"
+  // era già selezionato e la parola "obbligatoria" nella legenda non
+  // corrispondeva a niente. Nessun radio preselezionato; se si prova ad
+  // avviare senza sceglierlo, un messaggio d'errore collegato al gruppo
+  // (aria-describedby) viene annunciato e il focus va sul primo colore.
   const colorFieldset = document.createElement('fieldset');
   const colorLegend = document.createElement('legend');
-  colorLegend.textContent = 'Colore (scelta obbligatoria)';
+  colorLegend.textContent = 'Colore (scelta obbligatoria a ogni partita)';
   colorFieldset.appendChild(colorLegend);
-  ['w', 'b', 'casuale'].forEach((value, i) => {
+  ['w', 'b', 'casuale'].forEach((value) => {
     const label = document.createElement('label');
     const radio = document.createElement('input');
     radio.type = 'radio';
     radio.name = 'color';
     radio.value = value;
-    if (i === 2) radio.checked = true;
+    radio.addEventListener('change', clearColorError);
     const text = value === 'w' ? ' Bianco' : value === 'b' ? ' Nero' : ' Casuale';
     label.append(radio, text);
     colorFieldset.appendChild(label);
   });
+  const colorError = document.createElement('p');
+  colorError.id = 'color-error';
+  colorError.className = 'field-error';
+  colorError.hidden = true;
+  colorError.textContent = 'Scegli il colore con cui giocare: bianco, nero o casuale.';
+  colorFieldset.appendChild(colorError);
   form.appendChild(colorFieldset);
+
+  function clearColorError() {
+    colorError.hidden = true;
+    colorFieldset.removeAttribute('aria-describedby');
+    colorFieldset.removeAttribute('aria-invalid');
+  }
 
   // Musica di sottofondo
   const ambientFieldset = document.createElement('fieldset');
@@ -244,7 +254,8 @@ export function renderOptionsScreen(container, ctx) {
   ambientFieldset.appendChild(ambientDiv);
 
   // Anteprima: un pulsante ascolta/ferma per ogni traccia, per sentirle prima
-  // di sceglierne una. Ne suona una alla volta, al volume impostato in Extra.
+  // di sceglierne una. Ne suona una alla volta, al volume impostato in
+  // Impostazioni.
   const previewButtons = new Map();
   let previewKey = null;
 
@@ -290,7 +301,16 @@ export function renderOptionsScreen(container, ctx) {
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const colorChoice = form.querySelector('input[name="color"]:checked').value;
+    const colorRadio = form.querySelector('input[name="color"]:checked');
+    if (!colorRadio) {
+      colorError.hidden = false;
+      colorFieldset.setAttribute('aria-describedby', colorError.id);
+      colorFieldset.setAttribute('aria-invalid', 'true');
+      ctx.narrator.announce(colorError.textContent);
+      form.querySelector('input[name="color"]').focus();
+      return;
+    }
+    const colorChoice = colorRadio.value;
     const newConfig = {
       timeEnabled: timeToggle.checked,
       minutes: Number(minutesSelect.value),
@@ -301,7 +321,8 @@ export function renderOptionsScreen(container, ctx) {
       ambientTrack: ambientSelect.value,
     };
     saveLastConfig(newConfig);
-    sound.playUi('navigation');
+    // Il suono di navigazione lo suona già navigate(): suonarlo anche qui
+    // lo faceva sentire due volte sovrapposto.
     // Colore e fazione vengono sciolti qui una volta sola: da qui in poi la
     // partita lavora su valori concreti, mai su 'casuale'.
     navigate('game', {

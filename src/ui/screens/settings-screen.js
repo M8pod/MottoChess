@@ -1,5 +1,12 @@
 import { LIGHT_SQUARE_COLORS, DARK_SQUARE_COLORS } from '../../session/settings.js';
+import { AmbientPlayer } from '../ambient-player.js';
 import { contrastRatio, pieceFillFromSquareColor } from '../color-utils.js';
+import { PIECE_SET_CHOICES } from '../../themes/pieces.js';
+import { setLastConfigPieceSet } from '../../session/options.js';
+
+function percentText(value) {
+  return `${Math.round(Number(value) * 100)} per cento`;
+}
 
 function fieldRow(labelText, inputEl) {
   const div = document.createElement('div');
@@ -45,11 +52,20 @@ export function renderSettingsScreen(container, ctx) {
     persist();
   });
   themeSoundsLabel.append(themeSoundsInput, ' Suoni set tematici attivi');
-  accessFs.appendChild(themeSoundsLabel);
+  const themeSoundsHint = document.createElement('p');
+  themeSoundsHint.id = 'theme-sounds-hint';
+  themeSoundsHint.className = 'field-hint';
+  themeSoundsHint.textContent =
+    'Se disattivati, ogni set usa i suoni neutri del set classico: i suoni di gioco non vengono mai spenti.';
+  themeSoundsInput.setAttribute('aria-describedby', themeSoundsHint.id);
+  accessFs.append(themeSoundsLabel, themeSoundsHint);
 
-  const narrationDiv = document.createElement('div');
-  narrationDiv.className = 'field';
-  const narrationLegend = document.createElement('div');
+  // Gruppi di opzioni come <fieldset>/<legend>: così lo screen reader
+  // annuncia il nome del gruppo entrando nei radio/checkbox (prima era un
+  // semplice <div> di testo, non collegato alle opzioni).
+  const narrationDiv = document.createElement('fieldset');
+  narrationDiv.className = 'field nested-fieldset';
+  const narrationLegend = document.createElement('legend');
   narrationLegend.textContent = 'Stile narrazione';
   narrationDiv.appendChild(narrationLegend);
   ['compatto', 'espanso'].forEach((style) => {
@@ -63,14 +79,14 @@ export function renderSettingsScreen(container, ctx) {
       settings.narrationStyle = style;
       persist();
     });
-    label.append(radio, ` ${style === 'compatto' ? 'Compatto (es. Nf3)' : 'Espanso (es. cavallo in Firenze 3)'}`);
+    label.append(radio, ` ${style === 'compatto' ? 'Compatto (es. N f3, Q prende c5)' : 'Espanso (es. cavallo in Firenze 3)'}`);
     narrationDiv.appendChild(label);
   });
   accessFs.appendChild(narrationDiv);
 
-  const timeNoticesDiv = document.createElement('div');
-  timeNoticesDiv.className = 'field';
-  const timeNoticesLegend = document.createElement('div');
+  const timeNoticesDiv = document.createElement('fieldset');
+  timeNoticesDiv.className = 'field nested-fieldset';
+  const timeNoticesLegend = document.createElement('legend');
   timeNoticesLegend.textContent = 'Notifiche vocali tempo (solo partite a tempo)';
   timeNoticesDiv.appendChild(timeNoticesLegend);
   [
@@ -95,22 +111,45 @@ export function renderSettingsScreen(container, ctx) {
   // --- Audio ---
   const audioFs = document.createElement('fieldset');
   audioFs.innerHTML = '<legend>Audio</legend>';
+  // Il valore viene letto in percentuale (aria-valuetext) invece di "0,9",
+  // ed è scritto anche accanto al cursore. Al rilascio si sente un suono di
+  // prova al nuovo volume, così chi non vede sa subito com'è.
+  const ambientSample = new AmbientPlayer();
+  let ambientSampleTimer = null;
   [
-    ['volumeGame', 'Volume suoni di gioco'],
-    ['volumeUi', 'Volume suoni UI/menu'],
-    ['volumeAmbient', 'Volume musica di sottofondo'],
-  ].forEach(([key, text]) => {
+    ['volumeGame', 'Volume suoni di gioco', () => sound.playGame('move', {})],
+    ['volumeUi', 'Volume suoni UI/menu', () => sound.playUi('navigation')],
+    ['volumeAmbient', 'Volume musica di sottofondo', () => {
+      ambientSample.play('newage', settings.volumeAmbient);
+      clearTimeout(ambientSampleTimer);
+      ambientSampleTimer = setTimeout(() => ambientSample.stop(), 2500);
+    }],
+  ].forEach(([key, text, preview]) => {
     const input = document.createElement('input');
     input.type = 'range';
     input.min = '0';
     input.max = '1';
     input.step = '0.05';
     input.value = String(settings[key]);
+    const valueOut = document.createElement('span');
+    valueOut.className = 'volume-value';
+    valueOut.setAttribute('aria-hidden', 'true');
+    const updateValueText = () => {
+      input.setAttribute('aria-valuetext', percentText(input.value));
+      valueOut.textContent = `${Math.round(Number(input.value) * 100)}%`;
+    };
+    updateValueText();
     input.addEventListener('input', () => {
       settings[key] = Number(input.value);
+      updateValueText();
       persist();
     });
-    audioFs.appendChild(fieldRow(text, input));
+    input.addEventListener('change', preview);
+    const row = fieldRow(text, input);
+    // Fuori dalla <label>: il nome del cursore resta solo "Volume ...", e il
+    // valore lo legge lo screen reader da aria-valuetext.
+    row.appendChild(valueOut);
+    audioFs.appendChild(row);
   });
   container.appendChild(audioFs);
 
@@ -149,6 +188,9 @@ export function renderSettingsScreen(container, ctx) {
   const blackPieceSwatch = document.createElement('div');
   blackPieceSwatch.className = 'swatch';
   const contrastText = document.createElement('span');
+  // Regione "status": cambiando colore, lo screen reader annuncia il nuovo
+  // contrasto e l'eventuale avviso senza dover andare a cercarlo.
+  contrastText.setAttribute('role', 'status');
   preview.append(lightSwatch, darkSwatch, whitePieceSwatch, blackPieceSwatch, contrastText);
   boardFs.appendChild(preview);
 
@@ -179,6 +221,32 @@ export function renderSettingsScreen(container, ctx) {
   updatePreview();
   container.appendChild(boardFs);
 
+  // --- Set pezzi preferito ---
+  const setFs = document.createElement('fieldset');
+  setFs.innerHTML = '<legend>Set pezzi preferito</legend>';
+  const setSelect = document.createElement('select');
+  PIECE_SET_CHOICES.filter((c) => c.available).forEach((choice) => {
+    const o = document.createElement('option');
+    o.value = choice.value;
+    o.textContent = choice.label;
+    if (choice.value === settings.defaultPieceSet) o.selected = true;
+    setSelect.appendChild(o);
+  });
+  setSelect.addEventListener('change', () => {
+    settings.defaultPieceSet = setSelect.value;
+    persist();
+    setLastConfigPieceSet(setSelect.value, setSelect.value);
+  });
+  setFs.appendChild(fieldRow('Set pezzi', setSelect));
+  const setHint = document.createElement('p');
+  setHint.id = 'default-set-hint';
+  setHint.className = 'field-hint';
+  setHint.textContent =
+    'Usato da "Gioca subito" e preselezionato in Opzioni partita, finché non ne scegli un altro lì.';
+  setSelect.setAttribute('aria-describedby', setHint.id);
+  setFs.appendChild(setHint);
+  container.appendChild(setFs);
+
   // --- Lingua ---
   const langFs = document.createElement('fieldset');
   langFs.innerHTML = '<legend>Lingua</legend>';
@@ -193,23 +261,14 @@ export function renderSettingsScreen(container, ctx) {
 
   // --- PGN ---
   const pgnFs = document.createElement('fieldset');
-  pgnFs.innerHTML = '<legend>PGN — metadati opzionali da includere</legend>';
-  [
-    ['includeDateTime', 'Data/ora inizio-fine partita'],
-    ['includeSetName', 'Set scacchi usato'],
-    ['includePlayers', 'Nome giocatori'],
-  ].forEach(([key, text]) => {
-    const label = document.createElement('label');
-    const cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = settings.pgn[key];
-    cb.addEventListener('change', () => {
-      settings.pgn[key] = cb.checked;
-      persist();
-    });
-    label.append(cb, ` ${text}`);
-    pgnFs.appendChild(label);
-  });
+  // Dall'11/11/2026 l'intestazione delle partite salvate è sempre completa
+  // (data, set, colore e squadra di ciascuno, avversario, esito, durata):
+  // resta da scegliere solo un'eventuale nota libera.
+  pgnFs.innerHTML = '<legend>Partite salvate (PGN)</legend>';
+  const pgnInfo = document.createElement('p');
+  pgnInfo.textContent =
+    "Ogni partita salvata riporta sempre data e ora, set di pezzi, con quale colore e quale squadra giocavi, l'avversario, l'esito e la durata. Qui puoi aggiungere una nota che verrà scritta in tutte le partite.";
+  pgnFs.appendChild(pgnInfo);
   const notesInput = document.createElement('textarea');
   notesInput.value = settings.pgn.notes;
   notesInput.rows = 2;
@@ -233,4 +292,11 @@ export function renderSettingsScreen(container, ctx) {
     <p>Grazie a Lichess per gli asset grafici dei pezzi (licenza GPL).</p>
   `;
   container.appendChild(infoFs);
+
+  return {
+    destroy() {
+      clearTimeout(ambientSampleTimer);
+      ambientSample.stop();
+    },
+  };
 }
