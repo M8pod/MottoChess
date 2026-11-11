@@ -19,6 +19,7 @@ export const LIGHT_SQUARE_COLORS = {
   rosa: '#F2B8C6',
   'verde salvia': '#9CAF88',
   azzurro: '#A9D2E5',
+  cielo: '#CFE4F2',
 };
 
 export const DARK_SQUARE_COLORS = {
@@ -28,6 +29,7 @@ export const DARK_SQUARE_COLORS = {
   viola: '#6B4C7A',
   blu: '#2F4A8C',
   navy: '#243B6B',
+  'carta da zucchero': '#6E8FB5',
 };
 
 // Colori casella consigliati per set pezzi. Il set Judo ha judogi bianchi e
@@ -35,6 +37,7 @@ export const DARK_SQUARE_COLORS = {
 // fondo, quindi usa avorio e navy, volutamente diversi dai due judogi.
 export const PIECE_SET_SQUARE_COLORS = {
   judo: { light: 'avorio', dark: 'navy' },
+  'cani-gatti': { light: 'cielo', dark: 'carta da zucchero' },
 };
 
 // Tracce musicali di sottofondo (loop continuo durante la partita), canale
@@ -61,10 +64,11 @@ export const DEFAULT_SETTINGS = {
   lightSquareColorName: 'verde salvia',
   darkSquareColorName: 'viola',
   language: 'it',
+  // Set pezzi preferito: preselezionato in Opzioni partita e usato da
+  // "Gioca subito" finché non se ne sceglie un altro in Opzioni partita.
+  defaultPieceSet: 'classico',
+  // Intestazione PGN sempre completa (11/11/2026): resta solo la nota libera.
   pgn: {
-    includeDateTime: false,
-    includeSetName: false,
-    includePlayers: false,
     notes: '',
   },
 };
@@ -91,5 +95,9 @@ export function loadSettings() {
 }
 
 export function saveSettings(settings) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // memoria piena o navigazione privata: le impostazioni valgono per la sessione
+  }
 }
