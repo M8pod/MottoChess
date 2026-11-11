@@ -9,7 +9,139 @@ generazione.
 suoni da produrre. Il set è selezionabile in Opzioni partita e usa i pezzi classici come
 segnaposto finché i dodici PNG non sono in `assets/pieces/cani-gatti/`.
 
+## 0. Direzione artistica v2 — decisa il 10 novembre 2026
+
+**Questa sezione sostituisce le sezioni 3 (palette delle fazioni), 5, 6 e 7 dove sono in
+conflitto.** Resta valido tutto il resto: fazioni scelte dal giocatore, narrazione in
+bianco/nero, nomi dei file, requisiti tecnici.
+
+### Idea
+
+Pezzi **divertenti e personali**, non più la stessa posa per le due specie. Il re dei cani
+è **Roger**, il cane guida di Roberto. Ogni pezzo ha una posa propria e riconoscibile in
+silhouette; re e dama sono gli unici con un oggetto in testa, le torri le uniche sdraiate.
+
+### Palette: un esercito scuro e uno chiaro
+
+- **Cani = esercito scuro.** Roger labrador nero (`#2E2B29`); gli altri cani labrador
+  cioccolato (`#5A3A22`). Muso e dettagli con linee nere, occhi marroni lucidi, lingua rosa
+  `#E8829A`.
+- **Gatti = esercito chiaro.** Gatti rossi tigrati: arancio `#E8913A` con strisce
+  `#C46A1F`, petto e zampe crema `#F6E3C6`, occhi verdi `#7BC47F`.
+- Oro del marchio `#D4A94E` per gli oggetti "regali" (ciotola di Roger, scatoletta del re
+  gatto, collane delle dame).
+- **Bordo adesivo**: contorno nero uniforme disegnato da Gemini, più un bordo **bianco**
+  esterno identico su tutti i pezzi, aggiunto da `process_piece.py --sticker`. È quello
+  che rende ogni pezzo leggibile su qualunque casella, anche Roger nero su casella scura.
+- Pezzi e caselle **non ricolorabili**, come nel Judo. Colori casella da scegliere dopo i
+  primi pezzi veri, misurando i contrasti nell'app.
+
+### Pezzi
+
+| | Cani (scuri) | Gatti (chiari) | Altezza |
+|---|---|---|---|
+| Re | **Roger**: labrador nero seduto, ciotola di crocchette dorata in testa come corona (le crocchette che sbordano fanno le punte), lingua fuori slurposa | Gatto grasso seduto con una scatoletta di tonno aperta dorata in testa come corona, aria soddisfatta | 0.95 |
+| Dama | Labrador cioccolato elegante in piedi, collana di ossicini dorati, coda alzata | Gatta elegante in piedi, coda a punto interrogativo, collana di pesciolini dorati | 0.90 |
+| Alfiere | Cane in piedi sulle zampe posteriori che "fa la bella", alto e stretto | Gatto in piedi sulle zampe posteriori che si stiracchia verso l'alto | 0.88 |
+| Cavallo | Cane di profilo in salto per prendere una pallina | Gatto di profilo che balza su un gomitolo | 0.85 |
+| Torre | Cane che dorme felice appallottolato a ciambella | Gatto che dorme sopra un cuscino | 0.55 (larga) |
+| Pedone | Cucciolo seduto con un osso in bocca | Gattino seduto con una zampa alzata a giocare | 0.62 |
+
+### Prompt — blocco fisso v2
+
+Da anteporre a ogni pezzo. Le parti fra parentesi quadre cambiano fra cani e gatti.
+
+```
+Flat 2D vector-style game piece illustration of a single [DOG / CAT] character, full body,
+centered, on a perfectly flat solid MAGENTA background (#FF00FF) filling the whole image.
+
+Style: bold clean pure black outline of uniform thickness around the whole silhouette and
+every shape, completely flat colours, no gradients, no shading, no texture, no highlights
+except a single small white shine dot in each eye. No drop shadow, no ground, no floor, no
+ground ellipse, no text, no letters, no "Zzz", no logos, no border, no frame. Nothing
+touches the image edges. The background must stay pure flat magenta with no other colour,
+and the character must not use magenta or pink-purple anywhere except the tongue.
+
+Readability: the figure must remain recognisable as a silhouette at 50 pixels: large
+simple shapes, clear head silhouette, clear negative space between limbs and body.
+
+Character design: funny, warm and expressive, in the spirit of a children's picture book,
+slightly chubby and stylised. Not realistic, not 3D, not chibi with huge eyes.
+
+[DOG: a labrador retriever with floppy ears hanging down and a broad rounded muzzle with a
+big nose. / CAT: a ginger tabby cat with tall pointed triangular ears, small muzzle, long
+whiskers and a long tail; body flat orange #E8913A with simple darker orange stripes
+#C46A1F, chest and paws flat cream #F6E3C6, green eyes #7BC47F.]
+```
+
+### Prompt dei pezzi (in coda al blocco fisso)
+
+- **Re cani — Roger** (`caniK.png`): `This is Roger, a BLACK labrador (fur flat very dark
+  charcoal #2E2B29, details drawn with black lines, brown eyes). He sits upright facing the
+  viewer, happy and proud. On top of his head, worn like a crown, he balances a golden
+  dog bowl (#D4A94E) overflowing with brown kibble, the kibble pieces sticking up like the
+  points of a crown. His pink tongue (#E8829A) hangs out of his smiling mouth, big and
+  slobbery, with one drop of drool. No collar, no harness.`
+- **Re gatti** (`gattiK.png`): `A fat, very satisfied ginger cat sitting upright facing the
+  viewer, eyes half closed with pleasure. On top of his head, worn like a crown, an open
+  golden tuna can (#D4A94E) with the lid curled up behind it like the back of a crown.`
+- **Dama cani** (`caniQ.png`): `An elegant CHOCOLATE labrador (fur flat #5A3A22), standing
+  on all four legs in three-quarter view, head held high, tail raised, wearing a
+  necklace of small golden bones (#D4A94E).`
+- **Dama gatti** (`gattiQ.png`): `An elegant ginger cat standing on all four legs in
+  three-quarter view, head held high, tail raised in a question-mark curve, wearing a
+  necklace of small golden fish (#D4A94E).`
+- **Alfiere cani** (`caniB.png`): `A CHOCOLATE labrador (fur flat #5A3A22) standing up on
+  its hind legs begging, front paws up, tall and narrow, tongue slightly out, hopeful
+  expression.`
+- **Alfiere gatti** (`gattiB.png`): `A ginger cat standing up on its hind legs stretching
+  upward, front paws raised high, tall and narrow, eyes closed, yawning.`
+- **Cavallo cani** (`caniN.png`): `A CHOCOLATE labrador (fur flat #5A3A22) seen in pure
+  side profile, mid-leap, all four paws off the ground, catching a yellow tennis ball in
+  its mouth, ears flying.`
+- **Cavallo gatti** (`gattiN.png`): `A ginger cat seen in pure side profile, mid-pounce,
+  front paws reaching for a small blue ball of yarn, back arched, tail stretched out.`
+- **Torre cani** (`caniR.png`): `A CHOCOLATE labrador (fur flat #5A3A22) fast asleep, curled
+  up into a tight round ball like a doughnut, nose tucked into its tail, blissful smile,
+  eyes closed. Wide and low.`
+- **Torre gatti** (`gattiR.png`): `A ginger cat fast asleep, curled up on top of a plump
+  square red cushion (#5C1A2B) with a gold tassel at each corner, blissful smile, eyes
+  closed. Wide and low.`
+- **Pedone cani** (`caniP.png`): `A small CHOCOLATE labrador puppy (fur flat #5A3A22)
+  sitting facing the viewer, round body, big head, holding a white bone in its mouth.`
+- **Pedone gatti** (`gattiP.png`): `A small ginger kitten sitting facing the viewer, round
+  body, big head, one front paw raised playfully.`
+
+### Post-produzione
+
+```
+python3 tools/process_piece.py <sorgente.png> assets/pieces/cani-gatti/<nome>.png <altezza> 168 --sticker 4
+```
+
+Lo sfondo magenta viene riconosciuto da solo; l'alone viola sul contorno viene ripulito.
+
+### Suoni: aggiunte alla sezione 8
+
+Oltre ai nove suoni della sezione 8, per decisione di Roberto anche gli **esiti finali**
+sono caratterizzati (deroga al principio generale, come nel Judo), per fazione del
+giocatore:
+
+10. `cg_win_cani` — vittoria coi cani: abbaio festoso, coda che sbatte, medaglietta.
+11. `cg_win_gatti` — vittoria coi gatti: fusa trionfali e un "mrrraow" soddisfatto.
+12. `cg_loss_cani` — sconfitta coi cani: guaito buffo e sospiro.
+13. `cg_loss_gatti` — sconfitta coi gatti: miagolio offeso e sbuffo.
+14. `cg_draw` — patta, neutro: due animali che sbadigliano insieme.
+
+Scacco, mossa illegale e comando non capito restano al set neutro.
+
 ## 1. Cos'ha di diverso questo set: le fazioni
+
+> **Aggiornamento 11 novembre 2026 — fazione legata al colore.** Decisione di Roberto:
+> i **gatti sono sempre il bianco** e i **cani sempre il nero**, coerente con "cani
+> esercito scuro, gatti esercito chiaro" e come nel Judo (judogi bianco = bianco, blu =
+> nero). La domanda "Chi vuoi impersonare?" non c'è più: il giocatore sceglie solo il
+> colore. I file restano nominati per fazione. Il testo qui sotto descrive il progetto
+> originale con le due scelte indipendenti, e vale solo per la parte sulla narrazione.
 
 È il primo set in cui i due schieramenti non sono "il bianco" e "il nero" ma due
 **specie**, e in cui il giocatore sceglie **quale delle due impersonare**.
@@ -79,8 +211,22 @@ scuro, che è il modo in cui l'occhio legge da sempre una posizione.
 
 Da decidere **dopo aver visto i primi disegni**, come è stato fatto per il Judo (dove la
 scelta avorio/navy è arrivata solo dopo aver provato i judogi su caselle bianche e blu).
-Ipotesi di partenza da verificare: chiara **avorio** `#F2EDE4`, scura **viola**
-`#6B4C7A` — nessuna delle due vicina né al grigio ardesia dei gatti né al beige dei cani.
+
+**Attenzione — verifica dei contrasti fatta il 10 novembre 2026.** L'ipotesi iniziale
+(chiara avorio `#F2EDE4`, scura viola `#6B4C7A`) è la peggiore per i gatti:
+
+| | su avorio | su viola |
+|---|---|---|
+| Gatti grigio ardesia `#4A4E57` | 7,2:1 | **1,17:1** (spariscono) |
+| Cani beige `#D9A441` | **1,9:1** | 3,2:1 |
+
+È un limite di fondo: un esercito scuro e uno medio non possono contrastare bene con
+entrambe le caselle, e a salvarli sarà soprattutto il contorno nero. Prima di generare
+tutti e dodici i pezzi: (1) valutare un sottile alone chiaro fuori dal contorno nero,
+aggiunto in post-produzione da `process_piece.py`; (2) generare un solo pedone per specie e
+provarlo nell'app su più coppie di caselle; (3) chiedere a Gemini uno sfondo pieno magenta
+invece della scacchiera dipinta, perché lo script riconosce solo i grigi di quella e il
+petto crema dei gatti è vicino al bianco.
 Quando la scelta è presa va registrata in `PIECE_SET_SQUARE_COLORS` (`session/settings.js`),
 esattamente come per il Judo.
 
@@ -324,7 +470,8 @@ apre e si chiude con la voce della propria squadra.
 
 ### Cosa manca lato codice quando i suoni arrivano
 
-Due interventi, entrambi piccoli, in `ui/sound-manager.js`:
+Il punto 2 qui sotto è **già fatto** (10 novembre 2026): un set parziale ricade sul set
+default per ogni evento che non definisce. Resta solo il punto 1. Testo originale:
 
 1. Aggiungere la voce `'cani-gatti'` a `GAME_SETS`, con la sua `resolve(name, ctx)` che
    usa `ctx.faction` per scegliere fra la variante gatti e quella cani:

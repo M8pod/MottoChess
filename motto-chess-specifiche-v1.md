@@ -10,17 +10,20 @@ Autore: Roberto Lachin, judoka non vedente, conduttore (con Elena Travaini) di M
 
 ## Architettura — moduli disaccoppiati
 
-- `engine` — wrapper Stockfish (UCI), livelli 1–20 mappati su `UCI_Elo` + `UCI_LimitStrength`
+- `engine` — wrapper Stockfish (UCI), livelli 1–20 regolati con `Skill Level`, profondità e tempo (la build non ha `UCI_Elo`)
 - `game-core` — motore regole/stato partita, opera SEMPRE in notazione algebrica standard (es. e4). Nessuna dipendenza da temi o lingua.
 - `io-text` — parsing input testuale (compatto e "città italiane"), promozione, arrocco, en passant
-- `pgn` — import/export PGN, inclusi tag metadati opzionali
+- `pgn` — import/export PGN, con intestazione sempre completa
 - `themes/i18n-voice` — mapping nomi pezzi/città per vocalizzazione, traduzione bidirezionale da/verso notazione standard. Strettamente separato da game-core per garantire PGN corretto.
 - `session/options` — configurazione partita (persistenza automatica ultima config usata)
 - `ui` — layer di presentazione, sempre a doppia modalità parallela (mai un toggle)
 
 ## Interfaccia di gioco
 
-Schermata partita mostra solo: scacchiera grafica, campo comando testuale + pulsante invio, box pulsanti funzione (Resign; NO proposta patta in v1 — arriva con multiplayer online).
+Schermata partita mostra solo: scacchiera grafica, campo comando testuale + pulsante invio, box pulsanti funzione (**Abbandona**, **Aiuto**, **Sospendi e torna al menu**; NO proposta patta in v1 — arriva con multiplayer online). Il pulsante si chiama "Abbandona" e non "Resign": con la pagina in italiano gli screen reader leggevano la parola inglese con pronuncia italiana.
+
+### Partita sospesa e ripresa
+La partita in corso viene salvata automaticamente dopo ogni mossa, quando l'app va in background e quando si esce dalla schermata (`session/game-progress.js`). "Sospendi e torna al menu" esce senza abbandonare; la Home mostra allora per primo il pulsante **Riprendi partita**, con una descrizione (colore, set, numero di mossa). Alla ripresa il narratore annuncia: "Partita ripresa. Giochi con il bianco, tocca a te. Ultima mossa, nero: …". Avviando una partita nuova mentre ce n'è una sospesa, quella sospesa non si perde: finisce in Partite salvate con risultato `*` ed etichetta "(interrotta)".
 
 ### Orientamento scacchiera
 La scacchiera si orienta sempre in base al colore assegnato al giocatore in quella partita:
@@ -31,6 +34,7 @@ La convenzione a1-sempre-scura (vedi Impostazioni → Grafica scacchiera) resta 
 
 ### Interazione pezzi
 - VoiceOver: doppio-tap per selezionare, doppio-tap su destinazione per muovere. Casella selezionata annuncia stato "selezionata" durante la navigazione.
+- Tastiera fisica: frecce per spostarsi fra le caselle (nel verso in cui la scacchiera si vede), Home/Fine per inizio/fine traversa, Invio o Spazio per selezionare/muovere. Una mossa fatta da testo azzera sempre la selezione fatta al tocco.
 - Utenti vedenti: singolo tap per selezionare/rilasciare.
 - Selezione/deselezione pezzo (tocco, interfaccia grafica): suono dedicato distinto da mossa/cattura (`chess_piece_select`, `chess_piece_deselect`), riprodotto quando l'utente vedente tappa un pezzo per selezionarlo/deselezionarlo. Fa parte dei suoni di gioco (non UI/menu).
 - Mossa scacchisticamente illegale (tocco o testo sintatticamente corretto ma non ammesso dal regolamento): suono di diniego (buzzer elettronico) — `chess_illegal_move`.
@@ -38,7 +42,8 @@ La convenzione a1-sempre-scura (vedi Impostazioni → Grafica scacchiera) resta 
 - In entrambi i casi: nessun movimento, richiede nuova selezione/nuovo input.
 - **Arrocco (tocco)**: singolo doppio-tap sul re che si sposta di due caselle; la torre si muove automaticamente, riconosciuto dal motore.
 - **Promozione (tocco)**: popup con 4 opzioni (dama, torre, alfiere, cavallo), selezione a doppio-tap.
-- **Promozione (testo)**: mossa senza suffisso pezzo (es. `e8` o `Empoli 8`) → default dama. Con suffisso (es. `e8n` o `Empoli 8 cavallo`) → promuove al pezzo indicato.
+- **Promozione (testo)**: mossa senza suffisso pezzo (es. `e8` o `Empoli 8`) → default dama. Con suffisso (es. `e8n`, `e8=Q`, `e8=C` con lettere italiane D/T/A/C ammesse solo dopo `=`, oppure `Empoli 8 cavallo`) → promuove al pezzo indicato. In modalità città un nome di pezzo PRIMA della casella è il pezzo che muove, DOPO è il pezzo di promozione.
+- **Input testuale tollerante**: numeri di traversa anche in lettere (`Empoli quattro`), città e numero attaccati (`Empoli4`), punteggiatura della dettatura ignorata (`Empoli, 4.`); `bc4` minuscolo prova prima l'alfiere e, se non può, il pedone della colonna b.
 - **Promozione**: suono dedicato `chess_pawn_promotion`, unico e generico qualunque sia il pezzo scelto (dama/torre/alfiere/cavallo), riprodotto alla conferma della scelta (tocco o testo).
 
 ### Vocalizzazione scacchiera
@@ -47,7 +52,7 @@ La convenzione a1-sempre-scura (vedi Impostazioni → Grafica scacchiera) resta 
 - Mosse dell'avversario SEMPRE vocalizzate, nessuna opzione per disattivarle
 - En passant vocalizzato come "en passant" seguito da descrizione mossa
 - Stile narrazione (impostabile in Impostazioni, si applica a TUTTE le mosse, proprie e avversarie):
-  - **Compatto**: notazione tipo Nf3, Qxc5 (verificare in fase di sviluppo come VoiceOver legge i simboli `+`/`#`; se la lettura non è chiara, forzare una pronuncia esplicita)
+  - **Compatto**: notazione tipo Nf3, Qxc5, con pronuncia esplicita forzata (`sanToSpeech` in `themes/i18n-voice.js`): lettere e caselle separate da spazi, simboli resi a parole. `Nf3` → "N f3", `Qxc5+` → "Q prende c5, scacco", `e8=Q` → "e8 promuove a Q", `O-O` → "arrocco corto", `#` → "scacco matto" (omesso nell'annuncio a caldo, perché segue "Scacco matto. Hai vinto/perso.")
   - **Espanso**: es. "cavallo in Firenze 3", "dama mangia torre in Como 5"; se la mossa dà scacco, aggiungere ", scacco" in coda alla descrizione
 
 ### Inizio partita
@@ -59,8 +64,8 @@ Alla creazione di una nuova partita, il narratore annuncia colore assegnato e ch
 ### Promozione — conferma parlata
 Oltre al suono `chess_pawn_promotion`, conferma vocale del pezzo scelto: "Promosso a dama." / "Promosso a torre." / "Promosso ad alfiere." / "Promosso a cavallo."
 
-### Abbandono partita (Resign)
-Il pulsante Resign richiede conferma prima di eseguire, per evitare tocchi accidentali: prompt "Confermi abbandono partita?" (Sì/No). Confermato l'abbandono, segue l'annuncio dell'esito (vedi sotto).
+### Abbandono partita
+Il pulsante Abbandona richiede conferma prima di eseguire, per evitare tocchi accidentali: prompt "Confermi abbandono partita?" (Sì/No). Confermato l'abbandono, segue l'annuncio dell'esito (vedi sotto).
 
 ### Annunci fine partita
 Sobri e diretti, preceduti dal suono dedicato. 5 categorie sonore, con testo esatto per ciascun esito effettivo:
@@ -89,41 +94,71 @@ Tre notifiche indipendenti, ciascuna attivabile/disattivabile singolarmente da I
 
 1. **Tempo**: on/off; se on, minuti `[10,15,20,30,45,60,90,120]` + incremento secondi `[0,2,3,5,7,10,15,20,30]`, due select indipendenti (replicare comportamento stepper/picker nativo in HTML accessibile, dato che è PWA non nativa)
 2. **Livello Stockfish 1–20**, vedi tabella sotto
-3. **Colore**: bianco / nero / casuale — scelta OBBLIGATORIA a ogni nuova partita, anche da "Gioca subito" (unico campo escluso dal riuso automatico dell'ultima configurazione, dato che determina l'orientamento scacchiera). "Gioca subito" mostra quindi solo questa scelta (es. 3 pulsanti/select rapidi) e riusa tempo/livello/set pezzi dell'ultima sessione.
+3. **Colore**: bianco / nero / casuale — scelta OBBLIGATORIA a ogni nuova partita (in Opzioni partita nessuna opzione è preselezionata: avviando senza sceglierla compare un messaggio d'errore collegato al gruppo, annunciato dallo screen reader, e il focus va sul primo colore), anche da "Gioca subito" (unico campo escluso dal riuso automatico dell'ultima configurazione, dato che determina l'orientamento scacchiera). "Gioca subito" mostra quindi solo questa scelta (es. 3 pulsanti/select rapidi) e riusa tempo/livello/set pezzi dell'ultima sessione.
 4. **Set pezzi tematico**: Classico, Judo, Cani vs Gatti (quest'ultimo coi pezzi classici come segnaposto finché i disegni non arrivano); Samurai vs Ninja pianificato per dopo
 5. **Fazione**: presente solo per i set "a fazioni" che la fanno scegliere — oggi solo Cani vs Gatti: gatti / cani / casuale. Indipendente dal colore, e insieme al colore determina chi gioca col bianco (chi sceglie gatti e nero avrà gatti neri contro cani bianchi). A differenza del colore viene ricordata fra le partite: è una preferenza estetica, non qualcosa che cambia l'orientamento della scacchiera. Nell'ordine della schermata viene dopo il set (che decide se la domanda ha senso) e prima del colore. Dettagli in `motto-chess-set-cani-gatti.md` sezione 1, meccanica in `themes/factions.js`
 6. Colori scacchiera e set pezzi preferito di default → gestiti in Impostazioni, non qui
 
-### Tabella livelli Stockfish (UCI_Elo)
+### Tabella livelli Stockfish (rivista l'11 novembre 2026)
 
-| Livelli | Etichetta italiana | Elo target |
-|---|---|---|
-| 1–2 | Principiante | 1320–1420 |
-| 3–4 | Dilettante | 1420–1520 |
-| 5–6 | Amatore | 1520–1650 |
-| 7–8 | Intermedio | 1650–1800 |
-| 9–10 | Avanzato | 1800–1950 |
-| 11–12 | Esperto | 1950–2150 |
-| 13–14 | Candidato Maestro | 2150–2350 |
-| 15–16 | Maestro | 2350–2600 |
-| 17–18 | Maestro Internazionale | 2600–2900 |
-| 19–20 | Gran Maestro | 2900–3190 |
+La build inclusa (Stockfish 11 WASM) **non ha** `UCI_Elo`/`UCI_LimitStrength`: fino all'11/11/2026
+venivano impostate ma ignorate, e tutti i livelli giocavano alla forza piena. Ora la forza
+si regola con `Skill Level` (0–20), profondità massima e tempo di riflessione. Gli Elo sono
+**stime indicative**, mostrate in Opzioni come "circa N Elo". Valori esatti in
+`src/engine/engine.js` (`LEVELS`).
+
+| Livelli | Etichetta italiana | Elo indicativo | Skill / profondità / tempo |
+|---|---|---|---|
+| 1–2 | Principiante | 800–900 | 0 / 1–2 / 0,1 s |
+| 3–4 | Dilettante | 1000–1100 | 1–2 / 3–4 / 0,2 s |
+| 5–6 | Amatore | 1200–1300 | 3–4 / 5–6 / 0,3–0,4 s |
+| 7–8 | Intermedio | 1400–1500 | 5–6 / 7–8 / 0,5–0,6 s |
+| 9–10 | Avanzato | 1600–1700 | 7–8 / 9–10 / 0,8–1 s |
+| 11–12 | Esperto | 1800–1900 | 9–10 / 11–12 / 1,2–1,5 s |
+| 13–14 | Candidato Maestro | 2000–2100 | 11–12 / 13–14 / 2–2,5 s |
+| 15–16 | Maestro | 2200–2300 | 13–14 / 15–16 / 3–4 s |
+| 17–18 | Maestro Internazionale | 2450–2600 | 16–18 / 18–20 / 5–7 s |
+| 19–20 | Gran Maestro | 2750–2900 | 20 / libera / 10–15 s |
+
+**Tempo di risposta**: il computer muove sempre **entro un minuto** (richiesta di Roberto,
+11/11/2026). In pratica al massimo 15 secondi (livello 20), meno se il suo orologio è basso
+(mai oltre 1/20 del tempo residuo più l'incremento), e almeno 0,8 secondi perché la
+risposta non si accavalli alla narrazione. Rete di sicurezza: se dopo 55 secondi il motore
+non ha risposto, viene ricreato e gioca una mossa rapida.
+
+## Riproduzione partita (aggiunta l'11 novembre 2026)
+
+Da Partite salvate, ogni partita (giocata o importata) ha il pulsante **Riproduci sulla
+scacchiera**, che apre la schermata `replay` (`src/ui/screens/replay-screen.js`):
+- scacchiera con il set scritto nel PGN (tag `Set` o il vecchio `SetName`), altrimenti
+  classico; orientata dal lato del giocatore se il PGN lo indica, altrimenti dal bianco;
+  caselle consultabili con VoiceOver come in partita, ma non giocabili;
+- comandi: **Riproduci/Pausa**, **Mossa precedente**, **Mossa successiva**, **Torna
+  all'inizio**, **Vai alla fine**, velocità lenta/normale/veloce (8/5/3 secondi a mossa,
+  ricordata);
+- ogni mossa ha i suoni del set e la narrazione nello stile scelto, preceduta da numero e
+  colore ("12, nero: ..."); alla fine esito a parole e suono di vittoria/sconfitta/patta
+  (dal punto di vista del giocatore se noto, altrimenti del vincitore). Per i PGN importati
+  senza motivo di fine, matto o stallo vengono ricavati dalla posizione finale.
+- In pausa chi ascolta può rifare la mossa su una scacchiera fisica.
 
 ## Impostazioni (app-wide, persistenti)
 
-- **Accessibilità**: on/off suoni set tematici; stile narrazione compatto/espanso (vedi sopra)
+- **Accessibilità**: on/off suoni set tematici (disattivati = ogni evento usa il suono neutro del set default, MAI il silenzio); stile narrazione compatto/espanso (vedi sopra)
   - **Notifiche vocali tempo** (attive di default, ciascuna disattivabile singolarmente): avviso al 10% tempo residuo; avviso al 5% tempo residuo; annuncio tempo trascorso ogni 10 minuti (solo partite con tempo > 20 minuti). Vedi dettagli in "Notifiche vocali tempo".
-- **Audio**: volume separato per suoni di gioco (default 90%), suoni UI/menu (default 80%) e musica di sottofondo (default 15%, volutamente basso per non competere con narrazione e suoni di gioco/set — non esiste un volume "voiceover" separato: VoiceOver è lo screen reader dell'utente, il suo volume è dell'OS, non dell'app)
+- **Audio**: volume separato per suoni di gioco (default 90%), suoni UI/menu (default 80%) e musica di sottofondo (default 15%; i cursori sono letti in percentuale e al rilascio fanno sentire un suono di prova; la riproduzione passa dalla Web Audio API perché Safari su iPhone/iPad ignora il volume degli elementi `<audio>` — volutamente basso per non competere con narrazione e suoni di gioco/set — non esiste un volume "voiceover" separato: VoiceOver è lo screen reader dell'utente, il suo volume è dell'OS, non dell'app)
 - **Grafica scacchiera**: due select indipendenti colore caselle chiare/scure
-  - Chiare: bianco, giallo, rosa, verde salvia (default), azzurro
-  - Scure: nero, verde oliva, rosso, viola (default), blu
+  - Chiare: bianco, avorio, giallo, rosa, verde salvia (default), azzurro
+  - Scure: nero, verde oliva, rosso, viola (default), blu, navy
+  - (avorio e navy sono nati per il set Judo, che li impone come colori fissi, e sono disponibili anche per i set ricolorabili)
   - Default: chiare `#9CAF88` (verde salvia), scure `#6B4C7A` (viola)
   - Anteprima live + controllo automatico contrasto WCAG con avviso se insufficiente
   - **Convenzione colore-casella (fissa, non configurabile)**: a1 è SEMPRE casella scura (come da standard scacchistico), h1 sempre chiara, pattern alternato standard su tutta la scacchiera di conseguenza. Vale indipendentemente da orientamento/rotazione della scacchiera per il giocatore con il nero.
 - **Colore pezzi** (SOLO scacchiera default/classica): pezzi bianchi/neri con fill in una tonalità leggermente diversa (più chiara/scura) rispetto al colore-casella scelto, per non fondersi visivamente; bordo nero costante su entrambi, stroke-width min. 1.5–2px scalabile
 - **Lingua**: italiano + future
-- **Set pezzi preferito di default**
-- **PGN — metadati opzionali da includere** (checkbox): data/ora inizio-fine partita, set scacchi usato (solo tra quelli predefiniti, mai custom), nome giocatori, note libere. Lista mosse sempre inclusa (standard).
+- **Set pezzi preferito di default**: preselezionato in Opzioni partita e usato da "Gioca subito" finché non se ne sceglie un altro in Opzioni partita
+- **Partite salvate (PGN)** (rivisto l'11/11/2026): l'intestazione è **sempre completa**, non più a scelta. Tag standard (`Event`, `Site`, `Date`, `Round`, `White`, `Black`, `Result`, `TimeControl`, `Termination`, `StartTime`, `EndTime`, `EndDate` se diversa) più tag in italiano leggibili a voce: `Set` (es. "Cani vs Gatti"), `Giocatore` (es. "Bianco, con i gatti"), `Avversario` (es. "Stockfish livello 5 (circa 1200 Elo), Nero, con i cani"), `Esito` (es. "Hai vinto per scacco matto"), `Tempo`, `Durata`, `Mosse`. In Impostazioni resta solo la nota libera (tag `Notes`; virgolette e a capo neutralizzati). Il titolo nell'archivio dice data, esito a parole e set. **Privacy**: archivio e partite importate stanno solo nel `localStorage` del browser di quel dispositivo, nessun server; la schermata Partite salvate lo dice esplicitamente.
+- **Partite salvate**: esportazione (visualizza/scarica .pgn) e **importazione** da file .pgn o da testo incollato, anche con più partite per file. Eliminare una partita chiede conferma.
 - **Informazioni**:
   - Bio autore (testo fornito da Roberto)
   - Email: mottopod@gmail.com (link mailto)
@@ -168,7 +203,8 @@ Suoni "di sistema" (mossa illegale, scacco, scacco matto, esiti fine partita) re
 ## Brand identity
 
 - Colori: verde felpa `#0F5C3F`, oro/ottone `#D4A94E`, bordeaux `#5C1A2B`
-- Home: titolo "Motto Chess" (heading), immagine hero (pedone dorato/ombra samurai, alt breve non descrittivo completo), poi 4 pulsanti: **Gioca subito**, **Opzioni partita**, **Partite salvate (PGN)**, **Impostazioni**
+- Home: titolo "Motto Chess" (heading), immagine hero (pedone dorato/ombra samurai, alt breve non descrittivo completo), poi 4 pulsanti: **Gioca subito**, **Opzioni partita**, **Partite salvate (PGN)**, **Impostazioni** (preceduti da **Riprendi partita** quando c'è una partita sospesa)
+- A ogni cambio schermata il focus va sul titolo della nuova schermata (lo screen reader conferma dove si è arrivati) e il titolo della pagina cambia di conseguenza; la schermata di gioco mette invece il focus sul campo comandi
 - Pulsanti: fondo bordeaux/verde scuro, bordo oro sottile 2-3px, testo crema/oro chiaro (NO testo dorato su verde chiaro, verificare sempre contrasto)
 - Font decorativo solo per titolo/logo, font pulito e leggibile per tutti i controlli interattivi
 
