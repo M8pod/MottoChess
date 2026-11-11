@@ -18,15 +18,32 @@ const PIECE_SETS = {
     ext: 'png',
     recolorable: false,
     byFaction: true,
-    // Finché i dodici disegni non sono nella cartella, la scacchiera mostra i
-    // pezzi classici: così tutto il resto del set (scelta della fazione,
-    // colore, orientamento, suoni) è già giocabile e collaudabile. Mettere
-    // true quando i PNG ci sono — è l'unica riga da cambiare.
-    artReady: false,
+    // Con false la scacchiera mostra i pezzi classici al posto dei disegni
+    // (utile se si rifà l'intero set). I dodici PNG ci sono dall'11/11/2026.
+    artReady: true,
   },
 };
 
-const FILE_LETTER = { p: 'P', n: 'N', b: 'B', r: 'R', q: 'Q', k: 'K' };
+// Elenco dei set mostrato all'utente (Opzioni partita, set preferito in
+// Impostazioni, metadati PGN). Unica fonte, così nomi e disponibilità non
+// possono divergere fra una schermata e l'altra.
+export const PIECE_SET_CHOICES = [
+  { value: 'classico', label: 'Classico', available: true },
+  { value: 'judo', label: 'Judo (judogi bianco e blu)', available: true },
+  { value: 'cani-gatti', label: 'Cani vs Gatti', available: true },
+  { value: 'samurai-ninja', label: 'Samurai vs Ninja (in arrivo)', available: false },
+];
+
+export function pieceSetLabel(value) {
+  const choice = PIECE_SET_CHOICES.find((c) => c.value === value);
+  return choice ? choice.label : 'Classico';
+}
+
+export function isAvailablePieceSet(value) {
+  return PIECE_SET_CHOICES.some((c) => c.value === value && c.available);
+}
+
+const FILE_LETTER ={ p: 'P', n: 'N', b: 'B', r: 'R', q: 'Q', k: 'K' };
 
 const templateCache = new Map();
 

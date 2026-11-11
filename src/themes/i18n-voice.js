@@ -48,7 +48,24 @@ export const PROMO_LETTER_BY_NAME_IT = {
   cavallo: 'n',
 };
 
-export const COLOR_NAME_IT = { w: 'bianco', b: 'nero' };
+// Numeri di traversa scritti in lettere: la dettatura (e chi scrive a mano)
+// può produrre "Empoli quattro" invece di "Empoli 4".
+export const RANK_BY_WORD_IT = {
+  uno: '1',
+  due: '2',
+  tre: '3',
+  quattro: '4',
+  cinque: '5',
+  sei: '6',
+  sette: '7',
+  otto: '8',
+};
+
+// Lettere italiane accettate per il pezzo di promozione dopo "=" (es.
+// "e8=D"): D dama, T torre, A alfiere, C cavallo.
+export const PROMO_LETTER_BY_ITALIAN_LETTER = { d: 'q', t: 'r', a: 'b', c: 'n' };
+
+export const COLOR_NAME_IT ={ w: 'bianco', b: 'nero' };
 
 export function stripAccents(s) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -82,9 +99,43 @@ export function describeSquareForListing(square, piece) {
   return `${base}, ${PIECE_NAME_IT[piece.type]} ${COLOR_NAME_IT[piece.color]}`;
 }
 
-// Costruisce il testo "compatto" (notazione standard) per una mossa.
-export function moveToCompactText(move) {
-  return move.san;
+// Testo "compatto" (notazione standard) per una mossa, ma reso PRONUNCIABILE:
+// lette così come sono, stringhe come "Qxf7#" o "O-O" venivano lette dagli
+// screen reader in modo poco chiaro ("cu ics effe sette cancelletto", "o
+// trattino o"). La specifica chiede di forzare una pronuncia esplicita:
+// lettere e caselle restano quelle della notazione, separate da spazi,
+// mentre i simboli diventano parole ("prende", "scacco", "scacco matto",
+// "promuove a", "arrocco corto/lungo").
+//
+// opts.announceMate: false per l'annuncio "a caldo" di una mossa appena
+// giocata, perché subito dopo arriva comunque "Scacco matto. Hai vinto/perso."
+export function sanToSpeech(san, { announceMate = true } = {}) {
+  let s = String(san || '').trim();
+  let suffix = '';
+  if (s.endsWith('#')) {
+    suffix = announceMate ? ', scacco matto' : '';
+    s = s.slice(0, -1);
+  } else if (s.endsWith('+')) {
+    suffix = ', scacco';
+    s = s.slice(0, -1);
+  }
+  if (s === 'O-O' || s === '0-0') return `arrocco corto${suffix}`;
+  if (s === 'O-O-O' || s === '0-0-0') return `arrocco lungo${suffix}`;
+
+  const m = /^([NBRQK])?([a-h])?([1-8])?(x)?([a-h][1-8])(?:=([NBRQ]))?$/.exec(s);
+  if (!m) return san;
+  const [, piece, fromFile, fromRank, capture, dest, promo] = m;
+  const parts = [];
+  if (piece) parts.push(piece);
+  if (fromFile || fromRank) parts.push(`${fromFile || ''}${fromRank || ''}`);
+  if (capture) parts.push('prende');
+  parts.push(dest);
+  if (promo) parts.push(`promuove a ${promo}`);
+  return parts.join(' ') + suffix;
+}
+
+export function moveToCompactText(move, opts) {
+  return sanToSpeech(move.san, opts);
 }
 
 // Costruisce il testo "espanso" in italiano per una mossa già eseguita.
