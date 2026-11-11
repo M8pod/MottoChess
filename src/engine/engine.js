@@ -1,80 +1,105 @@
-// engine: wrapper Stockfish (UCI), livelli 1-20 mappati su UCI_Elo +
-// UCI_LimitStrength.
-
-// Elo assegnato a ciascun livello (estremi delle fasce della tabella in spec).
-const ELO_BY_LEVEL = {
-  1: 1320, 2: 1420,
-  3: 1420, 4: 1520,
-  5: 1520, 6: 1650,
-  7: 1650, 8: 1800,
-  9: 1800, 10: 1950,
-  11: 1950, 12: 2150,
-  13: 2150, 14: 2350,
-  15: 2350, 16: 2600,
-  17: 2600, 18: 2900,
-  19: 2900, 20: 3190,
+// engine: wrapper Stockfish (UCI), livelli 1-20.
+//
+// ATTENZIONE: la build inclusa (Stockfish 11 WASM, nmrugg/stockfish.js) NON
+// ha le opzioni UCI_Elo / UCI_LimitStrength. Fino all'11/11/2026 il codice le
+// impostava lo stesso, Stockfish le ignorava e tutti i venti livelli giocavano
+// alla forza piena. La forza si regola quindi con le tre leve che questa build
+// offre davvero:
+//   - "Skill Level" 0-20: sotto 20 Stockfish sceglie di proposito, con una
+//     certa probabilità, mosse peggiori della migliore;
+//   - profondità massima di ricerca (go depth N);
+//   - tempo di riflessione (go movetime).
+// Gli Elo della tabella sono STIME indicative (ordine di grandezza, ricavato
+// da come motori e siti tarano livelli simili), non misure: servono a dare al
+// giocatore un'idea della progressione.
+const LEVELS = {
+  1: { skill: 0, depth: 1, ms: 100, elo: 800 },
+  2: { skill: 0, depth: 2, ms: 150, elo: 900 },
+  3: { skill: 1, depth: 3, ms: 200, elo: 1000 },
+  4: { skill: 2, depth: 4, ms: 250, elo: 1100 },
+  5: { skill: 3, depth: 5, ms: 300, elo: 1200 },
+  6: { skill: 4, depth: 6, ms: 400, elo: 1300 },
+  7: { skill: 5, depth: 7, ms: 500, elo: 1400 },
+  8: { skill: 6, depth: 8, ms: 600, elo: 1500 },
+  9: { skill: 7, depth: 9, ms: 800, elo: 1600 },
+  10: { skill: 8, depth: 10, ms: 1000, elo: 1700 },
+  11: { skill: 9, depth: 11, ms: 1200, elo: 1800 },
+  12: { skill: 10, depth: 12, ms: 1500, elo: 1900 },
+  13: { skill: 11, depth: 13, ms: 2000, elo: 2000 },
+  14: { skill: 12, depth: 14, ms: 2500, elo: 2100 },
+  15: { skill: 13, depth: 15, ms: 3000, elo: 2200 },
+  16: { skill: 14, depth: 16, ms: 4000, elo: 2300 },
+  17: { skill: 16, depth: 18, ms: 5000, elo: 2450 },
+  18: { skill: 18, depth: 20, ms: 7000, elo: 2600 },
+  19: { skill: 20, depth: null, ms: 10000, elo: 2750 },
+  20: { skill: 20, depth: null, ms: 15000, elo: 2900 },
 };
 
 const STOCKFISH_WORKER_URL = new URL('../vendor/stockfish/stockfish.js', import.meta.url);
 
-// Tempo massimo di riflessione del motore. Con i tempi di partita lunghi
-// Stockfish si allocherebbe anche minuti per una singola mossa: attendere
-// tanto contro il computer è snervante e rallenta il gioco, quindi entro
-// questa soglia dall'inizio del suo turno gli si chiede di fermarsi e
-// giocare la miglior mossa trovata fino a quel momento.
-const MAX_THINK_MS = 6000;
+// Garanzia richiesta da Roberto (11/11/2026): l'avversario muove SEMPRE entro
+// un minuto. I tempi della tabella stanno già molto sotto; questa è la rete di
+// sicurezza per un dispositivo lento o un motore che non risponde al 'stop'.
+// Allo scadere il worker viene buttato e ricreato, e si chiede una mossa
+// rapidissima: meglio una mossa debole che una partita bloccata.
+const HARD_LIMIT_MS = 55000;
+// Dopo il 'stop' Stockfish deve ancora chiudere l'iterazione in corso: su un
+// telefono può volerci qualche secondo.
+const STOP_GRACE_MS = 3000;
+// Pausa minima fra la richiesta e la mossa del computer (vedi bestMove).
+const MIN_REPLY_MS = 800;
 
 export class Engine {
   constructor() {
     this.worker = null;
     this.ready = false;
-    this._pendingBestMove = null;
+    this.level = LEVELS[5];
+    this.levelNumber = 5;
+    this.positionCmd = null;
   }
 
   async init() {
-    this.worker = new Worker(STOCKFISH_WORKER_URL);
+    this._spawn();
     await this._send('uci', (line) => line === 'uciok');
     await this._send('isready', (line) => line === 'readyok');
     this.ready = true;
   }
 
   setLevel(level) {
-    const elo = ELO_BY_LEVEL[level] || ELO_BY_LEVEL[20];
-    this._command('setoption name UCI_LimitStrength value true');
-    this._command(`setoption name UCI_Elo value ${elo}`);
+    this.levelNumber = LEVELS[level] ? level : 20;
+    this.level = LEVELS[this.levelNumber];
+    this._command(`setoption name Skill Level value ${this.level.skill}`);
   }
 
   setPositionFen(fen) {
-    this._command(`position fen ${fen}`);
+    this.positionCmd = `position fen ${fen}`;
+    this._command(this.positionCmd);
   }
 
-  // Chiede la mossa migliore. Se sono forniti i tempi residui (ms), lascia che
-  // sia Stockfish a gestire la propria allocazione del tempo (go wtime/btime),
-  // comunque entro MAX_THINK_MS; altrimenti usa un tempo di riflessione fisso
-  // (partita senza orologio).
-  async bestMove({ wtimeMs, btimeMs, wincMs = 0, bincMs = 0 } = {}) {
-    let goCmd;
-    if (typeof wtimeMs === 'number' && typeof btimeMs === 'number') {
-      goCmd = `go wtime ${Math.max(1, Math.round(wtimeMs))} btime ${Math.max(
-        1,
-        Math.round(btimeMs)
-      )} winc ${Math.round(wincMs)} binc ${Math.round(bincMs)}`;
-    } else {
-      goCmd = 'go movetime 1000';
+  // Chiede la mossa. Il tempo di riflessione è quello del livello, ridotto se
+  // l'orologio del motore è basso (mai più di 1/20 del tempo che gli resta più
+  // l'incremento), così il computer non perde per tempo.
+  async bestMove({ wtimeMs, btimeMs, wincMs = 0, bincMs = 0, color } = {}) {
+    let ms = this.level.ms;
+    const hasClock = typeof wtimeMs === 'number' && typeof btimeMs === 'number';
+    if (hasClock) {
+      const turnFromFen = this.positionCmd ? this.positionCmd.split(' ')[3] : null;
+      const side = color || turnFromFen || 'w';
+      const left = side === 'w' ? wtimeMs : btimeMs;
+      const inc = side === 'w' ? wincMs : bincMs;
+      ms = Math.min(ms, Math.max(50, left / 20 + inc * 0.8));
     }
+    ms = Math.max(50, Math.round(ms));
+    const goCmd = this.level.depth ? `go depth ${this.level.depth} movetime ${ms}` : `go movetime ${ms}`;
 
-    // 'stop' fa rispondere subito Stockfish con un bestmove: il limite vale
-    // quindi come tetto massimo, senza rallentare le mosse più rapide.
-    const stopTimer = setTimeout(() => this._command('stop'), MAX_THINK_MS);
-    let line;
-    try {
-      line = await this._send(goCmd, (l) => l.startsWith('bestmove'));
-    } finally {
-      clearTimeout(stopTimer);
-    }
-
-    const parts = line.split(' ');
-    const uci = parts[1]; // es. 'e2e4' oppure '(none)' a fine partita
+    const started = Date.now();
+    const line = await this._goWithLimits(goCmd, ms);
+    // Ai livelli bassi la risposta arriva in pochi millisecondi: una mossa
+    // istantanea si accavallerebbe all'annuncio VoiceOver della mossa del
+    // giocatore. Una piccola pausa minima tiene il ritmo di prima.
+    const wait = MIN_REPLY_MS - (Date.now() - started);
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    const uci = line ? line.split(' ')[1] : null; // es. 'e2e4' oppure '(none)'
     if (!uci || uci === '(none)') return null;
     return uci;
   }
@@ -86,6 +111,40 @@ export class Engine {
     }
   }
 
+  // Lancia la ricerca con tre paracadute: 'stop' poco dopo il tempo previsto,
+  // e oltre HARD_LIMIT_MS motore ricreato e mossa d'emergenza.
+  async _goWithLimits(goCmd, ms) {
+    const isBest = (l) => l.startsWith('bestmove');
+    const search = this._send(goCmd, isBest);
+    const stopTimer = setTimeout(() => this._command('stop'), ms + STOP_GRACE_MS);
+    let hardTimer;
+    const hard = new Promise((resolve) => {
+      hardTimer = setTimeout(() => resolve(null), HARD_LIMIT_MS);
+    });
+    let line;
+    try {
+      line = await Promise.race([search, hard]);
+    } finally {
+      clearTimeout(stopTimer);
+      clearTimeout(hardTimer);
+    }
+    if (line || !this.worker) return line;
+    return this._emergencyMove();
+  }
+
+  async _emergencyMove() {
+    this.destroy();
+    this._spawn();
+    await this._send('uci', (l) => l === 'uciok');
+    this._command(`setoption name Skill Level value ${this.level.skill}`);
+    if (this.positionCmd) this._command(this.positionCmd);
+    return this._send('go depth 1', (l) => l.startsWith('bestmove'));
+  }
+
+  _spawn() {
+    this.worker = new Worker(STOCKFISH_WORKER_URL);
+  }
+
   _command(cmd) {
     // Il motore può essere già stato distrutto (uscita dalla partita mentre
     // stava ancora pensando): in quel caso il comando non ha più destinatario.
@@ -95,20 +154,25 @@ export class Engine {
 
   // Invia un comando e attende la prima riga di risposta che soddisfa `matchFn`.
   _send(cmd, matchFn) {
+    const worker = this.worker;
     return new Promise((resolve) => {
+      if (!worker) {
+        resolve(null);
+        return;
+      }
       const onMessage = (e) => {
         const line = typeof e.data === 'string' ? e.data : '';
         if (matchFn(line)) {
-          this.worker.removeEventListener('message', onMessage);
+          worker.removeEventListener('message', onMessage);
           resolve(line);
         }
       };
-      this.worker.addEventListener('message', onMessage);
+      worker.addEventListener('message', onMessage);
       this._command(cmd);
     });
   }
 }
 
 export function eloForLevel(level) {
-  return ELO_BY_LEVEL[level] || ELO_BY_LEVEL[20];
+  return (LEVELS[level] || LEVELS[20]).elo;
 }
