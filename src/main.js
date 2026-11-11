@@ -112,3 +112,17 @@ if ('serviceWorker' in navigator) {
 navigate('home');
 // Segnale per la rete di sicurezza in index.html: l'app è partita.
 window.__mottoStarted = true;
+
+// Statistiche d'uso anonime (Umami Cloud, server in UE, senza cookie: niente
+// banner da accettare). Un solo "sito" Umami raccoglie Motto Chess e Motto Jo,
+// distinti dal percorso (/MottoChess, /MottoJo). Lo script si carica SOLO
+// dopo l'avvio riuscito: se un blocco pubblicità o l'assenza di rete lo
+// fermano, la rete di sicurezza di index.html non deve scambiarlo per un
+// guasto dell'app. data-domains: si contano solo le visite al sito
+// pubblicato, non le prove in locale.
+const stats = document.createElement('script');
+stats.defer = true;
+stats.src = 'https://cloud.umami.is/script.js';
+stats.dataset.websiteId = '0cc5679f-6c47-4d64-b05e-7f56f951375e';
+stats.dataset.domains = 'm8pod.github.io';
+document.head.appendChild(stats);
