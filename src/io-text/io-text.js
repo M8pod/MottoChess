@@ -6,19 +6,30 @@ import {
   FILE_BY_CITY_LOWER,
   PIECE_LETTER_BY_NAME_IT,
   PROMO_LETTER_BY_NAME_IT,
+  PROMO_LETTER_BY_ITALIAN_LETTER,
+  RANK_BY_WORD_IT,
   stripAccents,
 } from '../themes/i18n-voice.js';
 
-const FILLER_WORDS = new Set(['in', 'a', 'da', 'la', 'il', 'lo', 'e', 'en', 'passant']);
+const FILLER_WORDS = new Set(['in', 'a', 'ad', 'da', 'la', 'il', 'lo', 'e', 'en', 'passant', 'promuove', 'promozione']);
 const CAPTURE_WORDS = new Set(['mangia', 'cattura', 'prende']);
 
 function normalizeWord(w) {
-  return stripAccents(w.toLowerCase()).trim();
+  const word = stripAccents(w.toLowerCase()).trim();
+  return RANK_BY_WORD_IT[word] || word;
+}
+
+// "empoli4" (città e numero attaccati) -> ["empoli", "4"]
+function splitCityDigit(word) {
+  const m = /^([a-z]+)([1-8])$/.exec(word);
+  return m && FILE_BY_CITY_LOWER[m[1]] ? [m[1], m[2]] : [word];
 }
 
 // Regex per la notazione compatta: pezzo?, disambiguazione file/riga?, cattura?,
-// destinazione, promozione?, +/# finale ignorato.
-const COMPACT_RE = /^([nbrqk])?([a-h])?([1-8])?(x)?([a-h][1-8])(?:=?([qrbn]))?[+#]?$/i;
+// destinazione, promozione?, +/# finale ignorato. La promozione accetta le
+// lettere inglesi (e8q, e8=Q) e, solo dopo "=", anche le italiane (e8=D):
+// senza "=" la "c" o la "a" sarebbero ambigue.
+const COMPACT_RE = /^([nbrqk])?([a-h])?([1-8])?(x)?([a-h][1-8])(?:=([qrbndtac])|([qrbn]))?[+#]?$/i;
 const CASTLE_LONG_RE = /^(o-o-o|0-0-0)$/i;
 const CASTLE_SHORT_RE = /^(o-o|0-0)$/i;
 
@@ -44,41 +55,41 @@ function parseCityRankPairs(words) {
 
 // Prova a interpretare il testo in modalità "città italiane".
 function tryParseCitta(rawWords) {
-  const words = rawWords.map(normalizeWord).filter((w) => w.length > 0);
+  const words = rawWords
+    .map(normalizeWord)
+    .flatMap(splitCityDigit)
+    .filter((w) => w.length > 0);
   if (words.length === 0) return null;
 
   const castle = parseCastleWords(words);
   if (castle) return castle;
 
+  // Un nome di pezzo PRIMA della prima casella è il pezzo che muove
+  // ("cavallo Firenze 3"); DOPO una casella è il pezzo di promozione
+  // ("Empoli 8 cavallo"). Prima il primo nome di pezzo veniva sempre preso
+  // come pezzo che muove, e "Empoli 8 cavallo" risultava illegale.
   let pieceHint;
   let promotion;
+  let seenCity = false;
   const remaining = [];
 
   for (const w of words) {
     if (FILLER_WORDS.has(w) || CAPTURE_WORDS.has(w)) continue;
-    if (!pieceHint && PIECE_LETTER_BY_NAME_IT[w]) {
+    if (FILE_BY_CITY_LOWER[w]) seenCity = true;
+    if (!seenCity && !pieceHint && PIECE_LETTER_BY_NAME_IT[w]) {
       pieceHint = PIECE_LETTER_BY_NAME_IT[w];
+      continue;
+    }
+    if (seenCity && PROMO_LETTER_BY_NAME_IT[w]) {
+      promotion = PROMO_LETTER_BY_NAME_IT[w];
       continue;
     }
     remaining.push(w);
   }
 
-  // L'eventuale ultima parola non consumata come città/cifra puo' essere la
-  // promozione (dama/torre/alfiere/cavallo), la controlliamo dopo aver
-  // estratto le caselle.
   const squares = parseCityRankPairs(remaining);
 
   if (squares.length === 0) return null;
-
-  // Parola di promozione: un nome-pezzo rimasto tra le "remaining" che non è
-  // stato consumato come parte di una coppia città+cifra.
-  const consumedCount = squares.length * 2;
-  if (remaining.length > consumedCount) {
-    const leftover = remaining[remaining.length - 1];
-    if (PROMO_LETTER_BY_NAME_IT[leftover]) {
-      promotion = PROMO_LETTER_BY_NAME_IT[leftover];
-    }
-  }
 
   if (squares.length === 1) {
     return { pieceHint, toSquare: squares[0], promotion };
@@ -101,12 +112,23 @@ function tryParseCompact(text) {
 
   const m = COMPACT_RE.exec(t);
   if (!m) return null;
-  const [, pieceLetter, fromFile, fromRank, , dest, promo] = m;
-  const intent = { toSquare: dest };
+  const [, pieceLetter, fromFile, fromRank, , dest, promoAfterEquals, promoBare] = m;
+  const intent = { toSquare: dest.toLowerCase() };
   if (pieceLetter) intent.pieceHint = pieceLetter.toLowerCase();
   if (fromFile) intent.fromFile = fromFile.toLowerCase();
   if (fromRank) intent.fromRank = fromRank;
-  if (promo) intent.promotion = promo.toLowerCase();
+  if (promoAfterEquals) {
+    const p = promoAfterEquals.toLowerCase();
+    intent.promotion = PROMO_LETTER_BY_ITALIAN_LETTER[p] || p;
+  } else if (promoBare) {
+    intent.promotion = promoBare.toLowerCase();
+  }
+  // "bc4" / "bxc4" scritti in minuscolo: la "b" può essere l'alfiere oppure
+  // la colonna del pedone che cattura. Si prova prima l'alfiere (come vuole
+  // la notazione) e, se non c'è nessuna mossa d'alfiere, il pedone.
+  if (pieceLetter === 'b' && !fromFile && !fromRank) {
+    intent.pawnAlternative = { toSquare: intent.toSquare, pieceHint: 'p', fromFile: 'b', promotion: intent.promotion };
+  }
   return intent;
 }
 
@@ -172,13 +194,14 @@ function resolveIntent(intent, legalMoves) {
 // parseMoveText, così non entrano mai in conflitto con la notazione (nessuna
 // mossa scacchistica è "l", "c", "s"+cifra/lettera o "aiuto").
 const CMD_HELP_RE = /^aiuto$/i;
+const CMD_DIAGNOSTICS_RE = /^diagnosi$/i;
 const CMD_CLOCK_RE = /^c$/i;
 const CMD_LAST_MOVES_RE = /^l(\d+)?$/i;
 const CMD_RANK_RE = /^s([1-8])$/i;
 const CMD_FILE_RE = /^s([a-h])$/i;
 
 // Ritorna uno tra:
-//  { type: 'help' }
+//  { type: 'help' } | { type: 'diagnostics' }
 //  { type: 'clock' }
 //  { type: 'lastMove' } | { type: 'lastMoves', count }
 //  { type: 'rank', rank: '1'-'8' } | { type: 'file', file: 'a'-'h' }
@@ -188,6 +211,7 @@ export function parseCommandText(rawText) {
   if (!t) return null;
 
   if (CMD_HELP_RE.test(t)) return { type: 'help' };
+  if (CMD_DIAGNOSTICS_RE.test(t)) return { type: 'diagnostics' };
   if (CMD_CLOCK_RE.test(t)) return { type: 'clock' };
 
   let m = CMD_LAST_MOVES_RE.exec(t);
@@ -207,7 +231,9 @@ export function parseCommandText(rawText) {
 //  { ok: false, reason: 'invalid' }   testo non interpretabile
 //  { ok: false, reason: 'illegal' }   sintassi ok ma nessuna mossa legale corrispondente
 export function parseMoveText(rawText, legalMoves) {
-  const text = (rawText || '').trim();
+  // La punteggiatura (tipica della dettatura: "Empoli, 4.") non porta
+  // informazione: si toglie, salvo trattino e uguale che servono a O-O e e8=D.
+  const text = (rawText || '').replace(/[,.;:!?]+/g, ' ').trim();
   if (!text) return { ok: false, reason: 'invalid' };
 
   let intent = tryParseCompact(text);
@@ -218,7 +244,10 @@ export function parseMoveText(rawText, legalMoves) {
     return { ok: false, reason: 'invalid' };
   }
 
-  const move = resolveIntent(intent, legalMoves);
+  let move = resolveIntent(intent, legalMoves);
+  if (!move && intent.pawnAlternative) {
+    move = resolveIntent(intent.pawnAlternative, legalMoves);
+  }
   if (!move) {
     return { ok: false, reason: 'illegal' };
   }
