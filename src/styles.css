@@ -10,6 +10,11 @@
 
 * { box-sizing: border-box; }
 
+/* L'attributo hidden deve vincere sempre: altrimenti una regola come
+   ".clock-bar { display: flex }" lo annulla (la barra dell'orologio vuota
+   compariva anche nelle partite senza tempo). */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -84,19 +89,27 @@ button {
   display: flex;
 }
 
+/* Lato casella: riempie la larghezza disponibile (fino a 76 px, ad es. su
+   iPad) senza superare il 9% dell'altezza, così campo comandi e pulsanti
+   restano sullo schermo. Prima era bloccato a 56 px anche sugli schermi
+   grandi. Le immagini dei set raster sono a 168 px: nitide fino a 84 px. */
 .square {
-  width: 12.5vmin;
-  height: 12.5vmin;
-  max-width: 56px;
-  max-height: 56px;
-  min-width: 36px;
-  min-height: 36px;
+  --sq: max(34px, min(calc((min(100vw, 640px) - 2rem - 6px) / 8), 9vh, 76px));
+  width: var(--sq);
+  height: var(--sq);
   border: none;
   padding: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
   position: relative;
+}
+
+/* Focus da tastiera ben visibile su qualunque colore casella. */
+.square:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: -5px;
+  box-shadow: inset 0 0 0 5px #000000;
 }
 
 .square.selected {
@@ -297,4 +310,90 @@ legend {
 
 .info-section a {
   color: var(--brand-gold);
+}
+
+.home-footer {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(212, 169, 78, 0.35);
+  font-size: 0.95rem;
+}
+
+.home-footer p {
+  margin: 0.4rem 0;
+}
+
+.home-footer a {
+  color: var(--brand-gold);
+}
+
+.field-error {
+  color: #ffb3b3;
+  font-weight: bold;
+  margin: 0.5rem 0 0;
+}
+
+.field-hint {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  margin: 0.25rem 0 0.75rem;
+}
+
+.volume-value {
+  display: inline-block;
+  min-width: 3.5em;
+  margin-left: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-message {
+  margin: 0.5rem 0;
+}
+
+.import-section textarea {
+  width: 100%;
+  min-height: 6rem;
+}
+.import-section button,
+.saved-game-item button {
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  border: 2px solid var(--brand-gold);
+  background: var(--brand-green);
+  color: var(--text-cream);
+  margin-top: 0.5rem;
+}
+.saved-game-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+/* Titoli che ricevono il focus a ogni cambio schermata: nessun riquadro di
+   focus visibile al clic, ma il titolo resta il punto di partenza per lo
+   screen reader. */
+h1[tabindex="-1"]:focus,
+h2[tabindex="-1"]:focus {
+  outline: none;
+}
+
+.nested-fieldset {
+  border: none;
+  padding: 0;
+  margin: 0 0 1rem;
+}
+.nested-fieldset legend {
+  padding: 0;
+  color: var(--text-cream);
+}
+
+.saved-games-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.saved-game-item h4 {
+  margin: 0;
+  font-size: 1rem;
 }
