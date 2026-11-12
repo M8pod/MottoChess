@@ -220,7 +220,7 @@ export default {
   'es. Empoli 4, cavallo Firenze 3, alfiere mangia Como 5. Il numero si può scrivere anche in lettere: Empoli quattro':
     'e.g. Echo 4, knight Foxtrot 3, bishop takes Charlie 5. The number can also be written as a word: Echo four. Files: Alpha, Bravo, Charlie, Delta, Echo, Foxtrot, Golf, Hotel',
   'Arrocco': 'Castling',
-  'O-O oppure O-O-O, o "arrocco corto" / "arrocco lungo"': 'O-O or O-O-O, or "castle kingside" / "castle queenside" (also "short castle" / "long castle")',
+  'corto: oo, 00 oppure O-O; lungo: ooo, 000 oppure O-O-O. Anche a parole: "arrocco corto" / "arrocco lungo"': 'short: oo, 00 or O-O; long: ooo, 000 or O-O-O. Also in words: "castle kingside" / "castle queenside" (or "short castle" / "long castle")',
   'l': 'l',
   "annuncia l'ultima mossa giocata": 'announces the last move played',
   'l + numero (es. l5)': 'l + number (e.g. l5)',

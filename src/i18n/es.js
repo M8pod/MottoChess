@@ -221,7 +221,7 @@ export default {
   'es. Empoli 4, cavallo Firenze 3, alfiere mangia Como 5. Il numero si può scrivere anche in lettere: Empoli quattro':
     'p. ej. Eva 4, caballo Félix 3, alfil toma César 5. El número también se puede escribir con letras: Eva cuatro. Columnas: Ana, Bella, César, David, Eva, Félix, Gustavo, Héctor',
   'Arrocco': 'Enroque',
-  'O-O oppure O-O-O, o "arrocco corto" / "arrocco lungo"': 'O-O u O-O-O, o "enroque corto" / "enroque largo"',
+  'corto: oo, 00 oppure O-O; lungo: ooo, 000 oppure O-O-O. Anche a parole: "arrocco corto" / "arrocco lungo"': 'corto: oo, 00 u O-O; largo: ooo, 000 u O-O-O. También con palabras: "enroque corto" / "enroque largo"',
   'l': 'l',
   "annuncia l'ultima mossa giocata": 'anuncia la última jugada',
   'l + numero (es. l5)': 'l + número (p. ej. l5)',

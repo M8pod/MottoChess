@@ -42,8 +42,10 @@ function splitCityDigit(word) {
 // lettere inglesi (e8q, e8=Q) e, solo dopo "=", anche le italiane (e8=D):
 // senza "=" la "c" o la "a" sarebbero ambigue.
 const COMPACT_RE = /^([nbrqk])?([a-h])?([1-8])?(x)?([a-h][1-8])(?:=([qrbndtacf])|([qrbn]))?[+#]?$/i;
-const CASTLE_LONG_RE = /^(o-o-o|0-0-0)$/i;
-const CASTLE_SHORT_RE = /^(o-o|0-0)$/i;
+// Trattini facoltativi (richiesta di Roberto, 13/11/2026): con la tastiera
+// sono scomodi, quindi valgono anche oo, 00, ooo, 000.
+const CASTLE_LONG_RE = /^(o-?o-?o|0-?0-?0)$/i;
+const CASTLE_SHORT_RE = /^(o-?o|0-?0)$/i;
 
 const CASTLE_WORDS = ['arrocco', 'castle', 'castles', 'castling', 'enroque', 'enroca', 'roque'];
 const CASTLE_LONG_WORDS = ['lungo', 'long', 'queenside', 'queen', 'largo', 'grand'];

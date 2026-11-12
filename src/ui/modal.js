@@ -104,7 +104,7 @@ const HELP_COMMANDS = [
   ['Notazione mossa compatta', 'es. e4, Nf3, exd5. Lettere dei pezzi in inglese: N cavallo, B alfiere, R torre, Q dama, K re'],
   ['Promozione', 'e8 promuove a dama; e8=D, e8=T, e8=A, e8=C (oppure e8=Q, e8n) per scegliere il pezzo; a parole: Empoli 8 cavallo'],
   ['Notazione "città italiane"', 'es. Empoli 4, cavallo Firenze 3, alfiere mangia Como 5. Il numero si può scrivere anche in lettere: Empoli quattro'],
-  ['Arrocco', 'O-O oppure O-O-O, o "arrocco corto" / "arrocco lungo"'],
+  ['Arrocco', 'corto: oo, 00 oppure O-O; lungo: ooo, 000 oppure O-O-O. Anche a parole: "arrocco corto" / "arrocco lungo"'],
   ['l', "annuncia l'ultima mossa giocata"],
   ['l + numero (es. l5)', 'annuncia le ultime N mosse giocate'],
   ['c', "annuncia il tempo residuo, tuo e dell'avversario"],

@@ -221,7 +221,7 @@ export default {
   'es. Empoli 4, cavallo Firenze 3, alfiere mangia Como 5. Il numero si può scrivere anche in lettere: Empoli quattro':
     'par ex. Eva 4, cavalier Félix 3, fou prend César 5. Le chiffre peut aussi s’écrire en lettres : Eva quatre. Colonnes : Anna, Bella, César, David, Eva, Félix, Gustave, Hector',
   'Arrocco': 'Roque',
-  'O-O oppure O-O-O, o "arrocco corto" / "arrocco lungo"': 'O-O ou O-O-O, ou « petit roque » / « grand roque »',
+  'corto: oo, 00 oppure O-O; lungo: ooo, 000 oppure O-O-O. Anche a parole: "arrocco corto" / "arrocco lungo"': 'petit : oo, 00 ou O-O ; grand : ooo, 000 ou O-O-O. Aussi en mots : « petit roque » / « grand roque »',
   'l': 'l',
   "annuncia l'ultima mossa giocata": 'annonce le dernier coup joué',
   'l + numero (es. l5)': 'l + nombre (par ex. l5)',
