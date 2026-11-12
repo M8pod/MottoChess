@@ -99,26 +99,33 @@ Tre notifiche indipendenti, ciascuna attivabile/disattivabile singolarmente da I
 5. **Fazione**: presente solo per i set "a fazioni" che la fanno scegliere — oggi solo Cani vs Gatti: gatti / cani / casuale. Indipendente dal colore, e insieme al colore determina chi gioca col bianco (chi sceglie gatti e nero avrà gatti neri contro cani bianchi). A differenza del colore viene ricordata fra le partite: è una preferenza estetica, non qualcosa che cambia l'orientamento della scacchiera. Nell'ordine della schermata viene dopo il set (che decide se la domanda ha senso) e prima del colore. Dettagli in `motto-chess-set-cani-gatti.md` sezione 1, meccanica in `themes/factions.js`
 6. Colori scacchiera e set pezzi preferito di default → gestiti in Impostazioni, non qui
 
-### Tabella livelli Stockfish (rivista l'11 novembre 2026)
+### Tabella livelli Stockfish (rivista il 12 novembre 2026)
 
-La build inclusa (Stockfish 11 WASM) **non ha** `UCI_Elo`/`UCI_LimitStrength`: fino all'11/11/2026
-venivano impostate ma ignorate, e tutti i livelli giocavano alla forza piena. Ora la forza
-si regola con `Skill Level` (0–20), profondità massima e tempo di riflessione. Gli Elo sono
-**stime indicative**, mostrate in Opzioni come "circa N Elo". Valori esatti in
-`src/engine/engine.js` (`LEVELS`).
+La build inclusa (Stockfish 11 WASM) **non ha** `UCI_Elo`/`UCI_LimitStrength`. L'11/11/2026
+la forza è stata regolata con `Skill Level`, profondità e tempo, ma i tester (12/11) non
+vincevano nemmeno al livello 1: anche a `Skill Level` 0 e profondità 1 Stockfish vede ogni
+cattura. Dal 12/11 i **livelli 1–10 usano il "modo debole"**: Stockfish valuta tutte le mosse
+(`MultiPV`) e la scelta la fa il nostro codice, con una probabilità di mossa casuale
+("svista") e una scelta pesata che spesso preferisce mosse non ottimali. I livelli 11–20
+restano a `Skill Level` + profondità + tempo. Gli Elo sono **stime indicative**. Valori
+esatti in `src/engine/engine.js` (`LEVELS`).
 
-| Livelli | Etichetta italiana | Elo indicativo | Skill / profondità / tempo |
+Verifica fatta con partite automatiche (10–12 partite per coppia): ogni livello debole batte
+nettamente quello sotto; il livello 1 batte un giocatore che muove a caso; i livelli 1–5
+perdono tutti contro il vecchio livello 1, l'8 e il 10 lo battono.
+
+| Livelli | Etichetta italiana | Elo indicativo | Come gioca |
 |---|---|---|---|
-| 1–2 | Principiante | 800–900 | 0 / 1–2 / 0,1 s |
-| 3–4 | Dilettante | 1000–1100 | 1–2 / 3–4 / 0,2 s |
-| 5–6 | Amatore | 1200–1300 | 3–4 / 5–6 / 0,3–0,4 s |
-| 7–8 | Intermedio | 1400–1500 | 5–6 / 7–8 / 0,5–0,6 s |
-| 9–10 | Avanzato | 1600–1700 | 7–8 / 9–10 / 0,8–1 s |
-| 11–12 | Esperto | 1800–1900 | 9–10 / 11–12 / 1,2–1,5 s |
-| 13–14 | Candidato Maestro | 2000–2100 | 11–12 / 13–14 / 2–2,5 s |
-| 15–16 | Maestro | 2200–2300 | 13–14 / 15–16 / 3–4 s |
-| 17–18 | Maestro Internazionale | 2450–2600 | 16–18 / 18–20 / 5–7 s |
-| 19–20 | Gran Maestro | 2750–2900 | 20 / libera / 10–15 s |
+| 1–2 | Principiante | 400–500 | svista 50–38%, profondità 1 |
+| 3–4 | Dilettante | 600–700 | svista 28–20%, profondità 2 |
+| 5–6 | Amatore | 800–950 | svista 14–9%, profondità 3–4 |
+| 7–8 | Intermedio | 1100–1250 | svista 6–4%, profondità 5–6 |
+| 9–10 | Avanzato | 1400–1500 | svista 2,5–1,5%, profondità 7–8 |
+| 11–12 | Esperto | 1600–1750 | Skill 3–5 / profondità 6–8 / 0,4–0,6 s |
+| 13–14 | Candidato Maestro | 1900–2000 | Skill 7–9 / 10–12 / 1–1,5 s |
+| 15–16 | Maestro | 2150–2300 | Skill 11–13 / 14–16 / 2,5–4 s |
+| 17–18 | Maestro Internazionale | 2450–2600 | Skill 16–18 / 18–20 / 5–7 s |
+| 19–20 | Gran Maestro | 2750–2900 | Skill 20 / libera / 10–15 s |
 
 **Tempo di risposta**: il computer muove sempre **entro un minuto** (richiesta di Roberto,
 11/11/2026). In pratica al massimo 15 secondi (livello 20), meno se il suo orologio è basso

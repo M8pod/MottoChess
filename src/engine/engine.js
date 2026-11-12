@@ -12,28 +12,44 @@
 // Gli Elo della tabella sono STIME indicative (ordine di grandezza, ricavato
 // da come motori e siti tarano livelli simili), non misure: servono a dare al
 // giocatore un'idea della progressione.
+//
+// LIVELLI 1-10, "modo debole" (12/11/2026). I tester non riuscivano a vincere
+// nemmeno al livello 1: Stockfish con Skill Level 0 e profondità 1 vede
+// comunque tutte le catture e le minacce immediate (ricerca di quiete) e gioca
+// come un buon dilettante. Ora, nei livelli bassi, chiediamo a Stockfish di
+// valutare TUTTE le mosse legali (MultiPV) e la scelta la facciamo noi:
+//   - blunder: probabilità di giocare una mossa legale qualsiasi, a caso;
+//   - temp: "temperatura" in centipedoni. Più è alta, più spesso sceglie una
+//     mossa peggiore della migliore (scelta pesata, non sempre la prima).
+// Così il computer lascia pezzi in presa e manca matti, come un principiante
+// vero, ma non fa solo mosse assurde.
 const LEVELS = {
-  1: { skill: 0, depth: 1, ms: 100, elo: 800 },
-  2: { skill: 0, depth: 2, ms: 150, elo: 900 },
-  3: { skill: 1, depth: 3, ms: 200, elo: 1000 },
-  4: { skill: 2, depth: 4, ms: 250, elo: 1100 },
-  5: { skill: 3, depth: 5, ms: 300, elo: 1200 },
-  6: { skill: 4, depth: 6, ms: 400, elo: 1300 },
-  7: { skill: 5, depth: 7, ms: 500, elo: 1400 },
-  8: { skill: 6, depth: 8, ms: 600, elo: 1500 },
-  9: { skill: 7, depth: 9, ms: 800, elo: 1600 },
-  10: { skill: 8, depth: 10, ms: 1000, elo: 1700 },
-  11: { skill: 9, depth: 11, ms: 1200, elo: 1800 },
-  12: { skill: 10, depth: 12, ms: 1500, elo: 1900 },
-  13: { skill: 11, depth: 13, ms: 2000, elo: 2000 },
-  14: { skill: 12, depth: 14, ms: 2500, elo: 2100 },
-  15: { skill: 13, depth: 15, ms: 3000, elo: 2200 },
-  16: { skill: 14, depth: 16, ms: 4000, elo: 2300 },
+  1: { weak: true, depth: 1, multipv: 500, blunder: 0.5, temp: 450, elo: 400 },
+  2: { weak: true, depth: 1, multipv: 500, blunder: 0.38, temp: 350, elo: 500 },
+  3: { weak: true, depth: 2, multipv: 500, blunder: 0.28, temp: 260, elo: 600 },
+  4: { weak: true, depth: 2, multipv: 500, blunder: 0.2, temp: 190, elo: 700 },
+  5: { weak: true, depth: 3, multipv: 500, blunder: 0.14, temp: 140, elo: 800 },
+  6: { weak: true, depth: 4, multipv: 40, blunder: 0.09, temp: 100, elo: 950 },
+  7: { weak: true, depth: 5, multipv: 25, blunder: 0.06, temp: 75, elo: 1100 },
+  8: { weak: true, depth: 6, multipv: 15, blunder: 0.04, temp: 55, elo: 1250 },
+  9: { weak: true, depth: 7, multipv: 10, blunder: 0.025, temp: 40, elo: 1400 },
+  10: { weak: true, depth: 8, multipv: 6, blunder: 0.015, temp: 28, elo: 1500 },
+  11: { skill: 3, depth: 6, ms: 400, elo: 1600 },
+  12: { skill: 5, depth: 8, ms: 600, elo: 1750 },
+  13: { skill: 7, depth: 10, ms: 1000, elo: 1900 },
+  14: { skill: 9, depth: 12, ms: 1500, elo: 2000 },
+  15: { skill: 11, depth: 14, ms: 2500, elo: 2150 },
+  16: { skill: 13, depth: 16, ms: 4000, elo: 2300 },
   17: { skill: 16, depth: 18, ms: 5000, elo: 2450 },
   18: { skill: 18, depth: 20, ms: 7000, elo: 2600 },
   19: { skill: 20, depth: null, ms: 10000, elo: 2750 },
   20: { skill: 20, depth: null, ms: 15000, elo: 2900 },
 };
+// Tempo massimo per i livelli deboli: la profondità bassa li fa finire quasi
+// sempre molto prima.
+const WEAK_MAX_MS = 3000;
+// Valore in centipedoni dato a "matto in N" per poterlo confrontare.
+const MATE_CP = 100000;
 
 const STOCKFISH_WORKER_URL = new URL('../vendor/stockfish/stockfish.js', import.meta.url);
 
@@ -68,7 +84,16 @@ export class Engine {
   setLevel(level) {
     this.levelNumber = LEVELS[level] ? level : 20;
     this.level = LEVELS[this.levelNumber];
-    this._command(`setoption name Skill Level value ${this.level.skill}`);
+    this._applyLevelOptions();
+  }
+
+  _applyLevelOptions() {
+    // Nel modo debole la "sbadataggine" la mettiamo noi: Stockfish deve dare
+    // valutazioni oneste di tutte le mosse.
+    const skill = this.level.weak ? 20 : this.level.skill;
+    const multipv = this.level.weak ? this.level.multipv : 1;
+    this._command(`setoption name Skill Level value ${skill}`);
+    this._command(`setoption name MultiPV value ${multipv}`);
   }
 
   setPositionFen(fen) {
@@ -80,7 +105,7 @@ export class Engine {
   // l'orologio del motore è basso (mai più di 1/20 del tempo che gli resta più
   // l'incremento), così il computer non perde per tempo.
   async bestMove({ wtimeMs, btimeMs, wincMs = 0, bincMs = 0, color } = {}) {
-    let ms = this.level.ms;
+    let ms = this.level.weak ? WEAK_MAX_MS : this.level.ms;
     const hasClock = typeof wtimeMs === 'number' && typeof btimeMs === 'number';
     if (hasClock) {
       const turnFromFen = this.positionCmd ? this.positionCmd.split(' ')[3] : null;
@@ -93,7 +118,8 @@ export class Engine {
     const goCmd = this.level.depth ? `go depth ${this.level.depth} movetime ${ms}` : `go movetime ${ms}`;
 
     const started = Date.now();
-    const line = await this._goWithLimits(goCmd, ms);
+    const candidates = new Map(); // indice multipv -> { move, cp }
+    const line = await this._goWithLimits(goCmd, ms, candidates);
     // Ai livelli bassi la risposta arriva in pochi millisecondi: una mossa
     // istantanea si accavallerebbe all'annuncio VoiceOver della mossa del
     // giocatore. Una piccola pausa minima tiene il ritmo di prima.
@@ -101,6 +127,7 @@ export class Engine {
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     const uci = line ? line.split(' ')[1] : null; // es. 'e2e4' oppure '(none)'
     if (!uci || uci === '(none)') return null;
+    if (this.level.weak && candidates.size > 0) return pickWeakMove(candidates, this.level) || uci;
     return uci;
   }
 
@@ -113,8 +140,11 @@ export class Engine {
 
   // Lancia la ricerca con tre paracadute: 'stop' poco dopo il tempo previsto,
   // e oltre HARD_LIMIT_MS motore ricreato e mossa d'emergenza.
-  async _goWithLimits(goCmd, ms) {
-    const isBest = (l) => l.startsWith('bestmove');
+  async _goWithLimits(goCmd, ms, candidates) {
+    const isBest = (l) => {
+      if (candidates && l.startsWith('info ')) collectCandidate(l, candidates);
+      return l.startsWith('bestmove');
+    };
     const search = this._send(goCmd, isBest);
     const stopTimer = setTimeout(() => this._command('stop'), ms + STOP_GRACE_MS);
     let hardTimer;
@@ -136,7 +166,7 @@ export class Engine {
     this.destroy();
     this._spawn();
     await this._send('uci', (l) => l === 'uciok');
-    this._command(`setoption name Skill Level value ${this.level.skill}`);
+    this._applyLevelOptions();
     if (this.positionCmd) this._command(this.positionCmd);
     return this._send('go depth 1', (l) => l.startsWith('bestmove'));
   }
@@ -171,6 +201,43 @@ export class Engine {
       this._command(cmd);
     });
   }
+}
+
+// Legge una riga "info ... multipv K score cp X ... pv e2e4 ..." e tiene,
+// per ogni K, l'ultima valutazione (quella della profondità più alta).
+// Il punteggio è dal punto di vista di chi muove, cioè del computer.
+export function collectCandidate(line, candidates) {
+  const parts = line.split(' ');
+  const pvAt = parts.indexOf('pv');
+  const scoreAt = parts.indexOf('score');
+  if (pvAt < 0 || scoreAt < 0 || !parts[pvAt + 1]) return;
+  const mpvAt = parts.indexOf('multipv');
+  const k = mpvAt >= 0 ? Number(parts[mpvAt + 1]) : 1;
+  const kind = parts[scoreAt + 1];
+  const value = Number(parts[scoreAt + 2]);
+  if (!Number.isFinite(value)) return;
+  let cp;
+  if (kind === 'mate') cp = value > 0 ? MATE_CP - value : -MATE_CP - value;
+  else cp = value;
+  candidates.set(k, { move: parts[pvAt + 1], cp });
+}
+
+// Scelta "umana" fra le mosse valutate (vedi commento sui livelli 1-10).
+export function pickWeakMove(candidates, level, rand = Math.random) {
+  const list = [...candidates.values()];
+  if (list.length === 0) return null;
+  if (rand() < level.blunder) return list[Math.floor(rand() * list.length)].move;
+  const best = Math.max(...list.map((c) => c.cp));
+  // Le differenze enormi (matti) vengono limitate, altrimenti un matto
+  // disponibile verrebbe scelto sempre: un principiante a volte non lo vede.
+  const weights = list.map((c) => Math.exp(-Math.min(best - c.cp, 2000) / level.temp));
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = rand() * total;
+  for (let i = 0; i < list.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return list[i].move;
+  }
+  return list[list.length - 1].move;
 }
 
 export function eloForLevel(level) {
