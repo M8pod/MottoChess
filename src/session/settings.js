@@ -108,7 +108,10 @@ export function loadSettings() {
     }
     // Un colore salvato che non esiste più nella palette (es. "carta da
     // zucchero", tolto dalle scure perché troppo chiaro) torna al predefinito.
-    if (!isSupportedLanguage(merged.language)) merged.language = 'it';
+    // Chi ha aperto il gioco prima che arrivassero le lingue (11/11/2026) ha
+    // impostazioni salvate SENZA lingua: prima ricadeva sull'italiano anche
+    // con il telefono in inglese. Ora vale la lingua del dispositivo.
+    if (!isSupportedLanguage(parsed.language)) merged.language = detectLanguage();
     if (!LIGHT_SQUARE_COLORS[merged.lightSquareColorName]) {
       merged.lightSquareColorName = DEFAULT_SETTINGS.lightSquareColorName;
     }

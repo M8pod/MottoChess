@@ -3,14 +3,14 @@ import { loadGameProgress } from '../../session/game-progress.js';
 import { resolveFaction } from '../../themes/factions.js';
 import { pieceSetLabel } from '../../themes/pieces.js';
 import { openDialog } from '../modal.js';
-import { t } from '../../i18n/i18n.js';
+import { t, LANGUAGES } from '../../i18n/i18n.js';
 
 function resolveColor(choice) {
   if (choice === 'casuale') return Math.random() < 0.5 ? 'w' : 'b';
   return choice;
 }
 
-export function renderHomeScreen(container, ctx) {
+export function renderHomeScreen(container, ctx, payload) {
   const { sound, navigate, settings } = ctx;
   container.innerHTML = '';
 
@@ -23,6 +23,39 @@ export function renderHomeScreen(container, ctx) {
   img.alt = t('Pedone e ombra di samurai');
   img.className = 'hero-image';
   container.appendChild(img);
+
+  // Lingua subito in home (richiesta di Roberto, 12/11/2026): alcuni giocatori
+  // di lingua inglese trovavano il gioco in italiano e non sapevano dove
+  // cambiarlo. L'etichetta è nelle quattro lingue, così la capisce chiunque;
+  // lo stesso menu resta anche in Impostazioni.
+  const langLabelText = 'Lingua / Language / Idioma / Langue';
+  const langField = document.createElement('div');
+  langField.className = 'field home-language';
+  const langLabel = document.createElement('label');
+  langLabel.textContent = langLabelText + ' ';
+  const langSelect = document.createElement('select');
+  LANGUAGES.forEach(({ value, label }) => {
+    const opt = document.createElement('option');
+    opt.value = value;
+    opt.textContent = label;
+    opt.lang = value;
+    langSelect.appendChild(opt);
+  });
+  langSelect.value = settings.language;
+  langSelect.addEventListener('change', () => {
+    ctx.saveSettings({ ...structuredClone(settings), language: langSelect.value });
+    navigate('home', { focusLanguage: true });
+  });
+  langLabel.appendChild(langSelect);
+  langField.appendChild(langLabel);
+  container.appendChild(langField);
+  if (payload && payload.focusLanguage) {
+    setTimeout(() => {
+      const again = container.querySelector('.home-language select');
+      if (again) again.focus();
+      ctx.narrator.announce(t('Lingua cambiata: italiano.'));
+    }, 0);
+  }
 
   // Partita sospesa (vedi session/game-progress.js): il pulsante per
   // riprenderla viene per primo, è l'azione più probabile.

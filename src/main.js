@@ -98,7 +98,7 @@ function navigate(screenName, payload) {
       break;
     case 'home':
     default:
-      rendered = renderHomeScreen(appMain, ctx);
+      rendered = renderHomeScreen(appMain, ctx, payload);
       break;
   }
   // Una schermata può reindirizzare altrove durante il proprio rendering
