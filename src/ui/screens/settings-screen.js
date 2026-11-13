@@ -92,6 +92,37 @@ export function renderSettingsScreen(container, ctx, payload) {
   });
   accessFs.appendChild(narrationDiv);
 
+  // Narrazione aggiuntiva (richiesta di Roberto, 13/11/2026): ogni giocatore
+  // sceglie quanto vuole sentire. Ogni casella ha una spiegazione collegata
+  // (aria-describedby), letta dallo screen reader insieme all'etichetta.
+  const extraDiv = document.createElement('fieldset');
+  extraDiv.className = 'field nested-fieldset';
+  const extraLegend = document.createElement('legend');
+  extraLegend.textContent = t('Narrazione aggiuntiva');
+  extraDiv.appendChild(extraLegend);
+  [
+    ['announceFromSquare', 'Pronuncia sempre la casella di partenza', 'Per esempio: cavallo da Genova 1 a Firenze 3, oppure N g1 f3.'],
+    ['announceOpenings', 'Pronuncia il nome delle aperture', 'Nelle prime mosse la voce dice, per esempio: Apertura: Partita italiana. Il comando apertura lo ripete.'],
+    ['postGameAnalysis', 'Commento e analisi a fine partita', 'A partita finita il computer analizza le tue mosse e commenta gli errori principali o le mosse migliori. Ci vogliono da qualche secondo a circa un minuto.'],
+  ].forEach(([key, text, hintText]) => {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!settings[key];
+    cb.addEventListener('change', () => {
+      settings[key] = cb.checked;
+      persist();
+    });
+    const hint = document.createElement('p');
+    hint.id = `hint-${key}`;
+    hint.className = 'field-hint';
+    hint.textContent = t(hintText);
+    cb.setAttribute('aria-describedby', hint.id);
+    label.append(cb, ` ${t(text)}`);
+    extraDiv.append(label, hint);
+  });
+  accessFs.appendChild(extraDiv);
+
   const timeNoticesDiv = document.createElement('fieldset');
   timeNoticesDiv.className = 'field nested-fieldset';
   const timeNoticesLegend = document.createElement('legend');

@@ -8,6 +8,9 @@ import {
   formatDuration,
   describeSquareForListing,
   describePieceLocations,
+  describeSquareInfo,
+  describeHangingPieces,
+  describeMaterial,
   fileName,
   colorName,
 } from '../../themes/i18n-voice.js';
@@ -23,6 +26,8 @@ import { askPromotionChoice, askResignConfirmation, showHelpDialog } from '../mo
 import { applyPgnMetadata, outcomeTexts, saveGame } from '../../pgn/pgn.js';
 import { AmbientPlayer } from '../ambient-player.js';
 import { saveGameProgress, loadGameProgress, clearGameProgress } from '../../session/game-progress.js';
+import { openingNameForFen, lastOpeningName, OPENING_MAX_PLY } from '../../themes/openings.js';
+import { analyseGame, buildAnalysisText, progressText } from '../../analysis/game-analysis.js';
 
 const FILES_ORDER = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
@@ -577,9 +582,87 @@ export function renderGameScreen(container, ctx, payload) {
     menuBtn.addEventListener('click', () => {
       sound.playGame('session_end', soundCtxFor(session.color));
       if (engine) engine.destroy();
+      stopAnalysis();
       navigate('home');
     });
     postGamePanel.append(resultText, menuBtn);
+
+    if (settings.postGameAnalysis) runPostGameAnalysis(outcome);
+  }
+
+  // --- Commento a fine partita (impostazione "Commento e analisi a fine
+  // partita") ---
+  // Un'istanza di Stockfish dedicata, a piena forza: quella della partita
+  // viene chiusa (poteva essere ancora a metà di una riflessione, per
+  // esempio se l'avversario ha finito il tempo mentre pensava). Il commento
+  // viene letto e resta scritto nel riquadro di fine partita, con un
+  // pulsante per riascoltarlo.
+  let analysisEngine = null;
+  let analysisCancelled = false;
+
+  function stopAnalysis() {
+    analysisCancelled = true;
+    if (analysisEngine) {
+      analysisEngine.destroy();
+      analysisEngine = null;
+    }
+  }
+
+  function outcomeForPlayer(outcome) {
+    if (outcome.kind === 'checkmate') return outcome.winner === session.color ? 'win' : 'loss';
+    if (outcome.kind === 'draw') return 'draw';
+    if (outcome.kind === 'timeout') return outcome.loser === session.color ? 'loss' : 'win';
+    return 'loss';
+  }
+
+  async function runPostGameAnalysis(outcome) {
+    const moves = gameCore.history({ verbose: true });
+    const playerMoves = moves.filter((m) => m.color === session.color).length;
+    if (playerMoves < 3) return;
+
+    if (engine) {
+      engine.destroy();
+      engine = null;
+    }
+    const section = document.createElement('section');
+    section.className = 'post-game-analysis';
+    const h = document.createElement('h3');
+    h.textContent = t('Commento alla partita');
+    const body = document.createElement('p');
+    body.textContent = progressText(moves.length);
+    section.append(h, body);
+    postGamePanel.insertBefore(section, postGamePanel.lastChild);
+    // Il narratore mette in coda: si sente dopo l'esito, prima del commento.
+    narrator.announce(progressText(moves.length));
+
+    try {
+      analysisEngine = new Engine();
+      await analysisEngine.init();
+      const result = await analyseGame({
+        moves,
+        playerColor: session.color,
+        engine: analysisEngine,
+        isCancelled: () => analysisCancelled || destroyed,
+      });
+      if (!result || analysisCancelled || destroyed) return;
+      const text = buildAnalysisText(result, outcomeForPlayer(outcome), { style: settings.narrationStyle });
+      // Nel riquadro il titolo c'è già: si scrive il commento senza la sua
+      // prima frase ("Commento alla partita."), che serve solo a voce.
+      body.textContent = text.replace(/^[^.]*\.\s*/, '');
+      const again = document.createElement('button');
+      again.type = 'button';
+      again.textContent = t('Riascolta il commento');
+      again.addEventListener('click', () => narrator.announce(text));
+      section.appendChild(again);
+      narrator.announce(text);
+    } catch {
+      body.textContent = t('Non è stato possibile analizzare la partita.');
+    } finally {
+      if (analysisEngine) {
+        analysisEngine.destroy();
+        analysisEngine = null;
+      }
+    }
   }
 
   function checkGameOverAfterMove(moveColor) {
@@ -607,6 +690,38 @@ export function renderGameScreen(container, ctx, payload) {
     return false;
   }
 
+  // Testo di una mossa nello stile scelto, con la casella di partenza se
+  // l'impostazione "Pronuncia sempre la casella di partenza" è attiva.
+  function moveText(move, { isCheck = false, isCheckmate = false, announceMate = true } = {}) {
+    const alwaysFrom = !!settings.announceFromSquare;
+    return settings.narrationStyle === 'compatto'
+      ? moveToCompactText(move, { announceMate, alwaysFrom })
+      : moveToExpandedText(move, { isCheck, isCheckmate, alwaysFrom });
+  }
+
+  // Nome dell'apertura (impostazione "Pronuncia il nome delle aperture"):
+  // detto quando la posizione raggiunta ne ha uno nuovo, solo nelle prime
+  // mosse. In una partita ripresa si parte dall'ultima già riconosciuta,
+  // senza ripeterla.
+  function historyFens() {
+    return gameCore.history({ verbose: true }).map((m) => m.after);
+  }
+  let lastOpening = lastOpeningName(historyFens());
+
+  function announceOpeningIfNew() {
+    if (!settings.announceOpenings) return;
+    if (gameCore.history().length > OPENING_MAX_PLY) return;
+    const name = openingNameForFen(gameCore.fen);
+    if (!name || name === lastOpening) return;
+    lastOpening = name;
+    narrator.announce(t('Apertura: {name}.', { name }));
+  }
+
+  function announceOpeningCommand() {
+    const name = lastOpeningName(historyFens());
+    narrator.announce(name ? t('Apertura: {name}.', { name }) : t('Nessuna apertura riconosciuta finora.'));
+  }
+
   async function afterMoveApplied(moveObj) {
     // Qualunque sia la strada della mossa (tocco, testo, motore), una
     // selezione fatta prima sulla scacchiera non vale più: prima restava
@@ -624,11 +739,8 @@ export function renderGameScreen(container, ctx, payload) {
     }
 
     const status = gameCore.status();
-    const text =
-      settings.narrationStyle === 'compatto'
-        ? moveToCompactText(moveObj, { announceMate: false })
-        : moveToExpandedText(moveObj, { isCheck: status.isCheck, isCheckmate: status.isCheckmate });
-    narrator.announce(text);
+    narrator.announce(moveText(moveObj, { isCheck: status.isCheck, isCheckmate: status.isCheckmate, announceMate: false }));
+    announceOpeningIfNew();
 
     if (status.isCheck && !status.isCheckmate) {
       sound.playGame('check', soundCtx);
@@ -750,10 +862,7 @@ export function renderGameScreen(container, ctx, payload) {
     const sideLabel = colorName(move.color);
     const isCheckmate = move.san.endsWith('#');
     const isCheck = isCheckmate || move.san.endsWith('+');
-    const text =
-      settings.narrationStyle === 'compatto'
-        ? moveToCompactText(move)
-        : moveToExpandedText(move, { isCheck, isCheckmate });
+    const text = moveText(move, { isCheck, isCheckmate });
     return t('Mossa {n}, {side}: {text}', { n: moveNumber, side: sideLabel, text });
   }
 
@@ -854,6 +963,18 @@ export function renderGameScreen(container, ctx, payload) {
         break;
       case 'narrationStyle':
         toggleNarrationStyle();
+        break;
+      case 'attention':
+        narrator.announce(describeHangingPieces(gameCore.fen, session.color));
+        break;
+      case 'squareInfo':
+        narrator.announce(describeSquareInfo(gameCore.fen, command.square));
+        break;
+      case 'material':
+        narrator.announce(describeMaterial(gameCore.fen, session.color));
+        break;
+      case 'opening':
+        announceOpeningCommand();
         break;
       case 'musicToggle':
         toggleMusic();
@@ -972,11 +1093,8 @@ export function renderGameScreen(container, ctx, payload) {
       const last = history[history.length - 1];
       const isCheckmate = last.san.endsWith('#');
       const isCheck = isCheckmate || last.san.endsWith('+');
-      const moveText =
-        settings.narrationStyle === 'compatto'
-          ? moveToCompactText(last)
-          : moveToExpandedText(last, { isCheck, isCheckmate });
-      lastText = ` ${t('Ultima mossa, {side}: {text}.', { side: colorName(last.color), text: moveText })}`;
+      const lastMoveText = moveText(last, { isCheck, isCheckmate });
+      lastText = ` ${t('Ultima mossa, {side}: {text}.', { side: colorName(last.color), text: lastMoveText })}`;
     }
     return `${t('Partita ripresa. Giochi con {color}, {turn}.', { color: colorText, turn: turnText })}${lastText}`;
   }
@@ -1037,6 +1155,7 @@ export function renderGameScreen(container, ctx, payload) {
       if (clock) clock.stop();
       ambient.stop();
       if (engine) engine.destroy();
+      stopAnalysis();
     },
   };
 }

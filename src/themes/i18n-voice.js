@@ -251,10 +251,22 @@ function isAmbiguousMove(move) {
 }
 
 // Nella notazione compatta, se la mossa è ambigua si dice la casella di
-// partenza COMPLETA ("C f3 prende d4") invece della sola lettera o del solo
-// numero della notazione standard ("C 3 prende d4"), più difficile da capire
+// partenza COMPLETA ("N f3 prende d4") invece della sola lettera o del solo
+// numero della notazione standard ("N 3 prende d4"), più difficile da capire
 // a orecchio. I pedoni restano come sono: "e prende d4" basta già.
-export function moveToCompactText(move, opts) {
+//
+// opts.alwaysFrom (impostazione "Pronuncia sempre la casella di partenza",
+// richiesta di Roberto del 13/11/2026): la casella di partenza si dice per
+// OGNI mossa, pedoni compresi, come nella notazione lunga: "N g1 f3",
+// "e2 e4", "e5 prende d6".
+export function moveToCompactText(move, opts = {}) {
+  const castle = move.isKingsideCastle?.() || move.isQueensideCastle?.();
+  if (opts.alwaysFrom && !castle) {
+    const suffix = /[+#]$/.test(move.san) ? move.san.slice(-1) : '';
+    const letter = move.piece === 'p' ? '' : move.piece.toUpperCase();
+    const promo = move.promotion ? `=${move.promotion.toUpperCase()}` : '';
+    return sanToSpeech(`${letter}${move.from}${move.captured ? 'x' : ''}${move.to}${promo}${suffix}`, opts);
+  }
   let san = move.san;
   if (move.piece !== 'p' && isAmbiguousMove(move)) {
     san = san.replace(/^([NBRQK])[a-h]?[1-8]?/, `$1${move.from}`);
@@ -262,11 +274,33 @@ export function moveToCompactText(move, opts) {
   return sanToSpeech(san, opts);
 }
 
+// "a Firenze 3", ma "ad Ancona 3": la "d" eufonica davanti alla a.
+function itTo(city) {
+  return /^a/i.test(city) ? `ad ${city}` : `a ${city}`;
+}
+
+// Parole delle frasi espanse, per lingua. from: "cavallo di Firenze 3
+// mangia..." (catture); moveFrom/moveTo: "cavallo da Genova 1 a Firenze 3"
+// (mosse senza cattura con la casella di partenza).
+const EXPANDED_WORDS = {
+  it: { ep: 'en passant, pedone mangia pedone in', epFrom: 'en passant, pedone', epTail: 'mangia pedone in', takes: 'mangia', on: 'in', to: 'in', from: 'di', moveFrom: 'da', moveTo: itTo },
+  en: { ep: 'en passant, pawn takes pawn on', epFrom: 'en passant, pawn', epTail: 'takes pawn on', takes: 'takes', on: 'on', to: 'to', from: 'from', moveFrom: 'from', moveTo: (c) => `to ${c}` },
+  es: { ep: 'al paso, peón toma peón en', epFrom: 'al paso, peón', epTail: 'toma peón en', takes: 'toma', on: 'en', to: 'a', from: 'de', moveFrom: 'de', moveTo: (c) => `a ${c}` },
+  fr: { ep: 'prise en passant, pion prend pion en', epFrom: 'prise en passant, pion', epTail: 'prend pion en', takes: 'prend', on: 'en', to: 'en', from: 'de', moveFrom: 'de', moveTo: (c) => `en ${c}` },
+};
+
+// "de" + casella, con l'elisione francese: "d'Anna 1", "d'Eva 2",
+// "d'Hector 3", ma "de Bella 1".
+function fromWord(P, word, city) {
+  if (getLanguage() === 'fr' && word === 'de' && /^[aeiouhéè]/i.test(city)) return `d'${city}`;
+  return `${word} ${city}`;
+}
+
 // Testo "espanso" per una mossa già eseguita.
 // move: oggetto Move di chess.js (con isCapture/isEnPassant/isCastle ecc.)
 // opts.isCheck / opts.isCheckmate: stato della partita DOPO la mossa.
-export function moveToExpandedText(move, { isCheck = false, isCheckmate = false } = {}) {
-  const lang = getLanguage();
+// opts.alwaysFrom: dice sempre la casella di partenza (vedi moveToCompactText).
+export function moveToExpandedText(move, { isCheck = false, isCheckmate = false, alwaysFrom = false } = {}) {
   const w = L();
   let phrase;
 
@@ -276,25 +310,24 @@ export function moveToExpandedText(move, { isCheck = false, isCheckmate = false 
     phrase = w.castleLong;
   } else {
     const destCity = squareToCity(move.to);
-    const P = {
-      it: { ep: 'en passant, pedone mangia pedone in', epFrom: 'en passant, pedone', epTail: 'mangia pedone in', takes: 'mangia', on: 'in', to: 'in', from: 'di' },
-      en: { ep: 'en passant, pawn takes pawn on', epFrom: 'en passant, pawn', epTail: 'takes pawn on', takes: 'takes', on: 'on', to: 'to', from: 'from' },
-      es: { ep: 'al paso, peón toma peón en', epFrom: 'al paso, peón', epTail: 'toma peón en', takes: 'toma', on: 'en', to: 'a', from: 'de' },
-      fr: { ep: 'prise en passant, pion prend pion en', epFrom: 'prise en passant, pion', epTail: 'prend pion en', takes: 'prend', on: 'en', to: 'en', from: 'de' },
-    }[lang] || { ep: 'en passant, pedone mangia pedone in', epFrom: 'en passant, pedone', epTail: 'mangia pedone in', takes: 'mangia', on: 'in', to: 'in', from: 'di' };
-    // Se due pezzi uguali potevano andare sulla stessa casella, si dice da
-    // dove parte quello mosso: "cavallo di Firenze 3 mangia pedone in
-    // Domodossola 4".
-    const ambiguous = isAmbiguousMove(move);
-    const fromPart = ambiguous ? ` ${P.from} ${squareToCity(move.from)}` : '';
-    const moverName = `${pieceName(move.piece)}${fromPart}`;
+    const fromCity = squareToCity(move.from);
+    const P = EXPANDED_WORDS[getLanguage()] || EXPANDED_WORDS.it;
+    // Casella di partenza detta se richiesta dall'impostazione, oppure se
+    // due pezzi uguali potevano andare sulla stessa casella: "cavallo di
+    // Firenze 3 mangia pedone in Domodossola 4", "torre da Ancona 1 a
+    // Domodossola 1".
+    const withFrom = alwaysFrom || isAmbiguousMove(move);
+    const name = pieceName(move.piece);
 
     if (move.isEnPassant()) {
-      phrase = ambiguous ? `${P.epFrom}${fromPart} ${P.epTail} ${destCity}` : `${P.ep} ${destCity}`;
+      phrase = withFrom ? `${P.epFrom} ${fromWord(P, P.from, fromCity)} ${P.epTail} ${destCity}` : `${P.ep} ${destCity}`;
     } else if (move.captured) {
-      phrase = `${moverName} ${P.takes} ${pieceName(move.captured)} ${P.on} ${destCity}`;
+      const mover = withFrom ? `${name} ${fromWord(P, P.from, fromCity)}` : name;
+      phrase = `${mover} ${P.takes} ${pieceName(move.captured)} ${P.on} ${destCity}`;
+    } else if (withFrom) {
+      phrase = `${name} ${fromWord(P, P.moveFrom, fromCity)} ${P.moveTo(destCity)}`;
     } else if (move.piece !== 'p') {
-      phrase = `${moverName} ${P.to} ${destCity}`;
+      phrase = `${name} ${P.to} ${destCity}`;
     } else {
       phrase = destCity;
     }
@@ -302,6 +335,181 @@ export function moveToExpandedText(move, { isCheck = false, isCheckmate = false 
 
   if (isCheck && !isCheckmate) phrase += `, ${w.check}`;
   return phrase;
+}
+
+// --- Comandi "i" (casella), "a" (attenzione) e "x" (materiale) ---
+
+const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 100 };
+
+const INFO_WORDS = {
+  it: {
+    on: 'in', none: 'nessuno', attackers: 'Attaccanti', defenders: 'Difensori',
+    controlW: 'Pezzi bianchi che la controllano', controlB: 'Pezzi neri che la controllano',
+    hangingHead: 'Attenzione, pezzi in presa:', noHanging: 'Nessun tuo pezzo è in presa.', inCheck: 'Il tuo re è sotto scacco.',
+    youTook: 'Hai mangiato', oppTook: "L'avversario ha mangiato", nothing: 'nessun pezzo', and: 'e',
+    ahead: (n) => `Sei in vantaggio di ${n} punt${n === 1 ? 'o' : 'i'}.`,
+    behind: (n) => `L'avversario è in vantaggio di ${n} punt${n === 1 ? 'o' : 'i'}.`,
+    even: 'Materiale in parità.',
+  },
+  en: {
+    on: 'on', none: 'none', attackers: 'Attacked by', defenders: 'Defended by',
+    controlW: 'White pieces controlling it', controlB: 'Black pieces controlling it',
+    hangingHead: 'Warning, pieces under threat:', noHanging: 'None of your pieces is hanging.', inCheck: 'Your king is in check.',
+    youTook: 'You have captured', oppTook: 'Your opponent has captured', nothing: 'nothing', and: 'and',
+    ahead: (n) => `You are ahead by ${n} point${n === 1 ? '' : 's'}.`,
+    behind: (n) => `Your opponent is ahead by ${n} point${n === 1 ? '' : 's'}.`,
+    even: 'Material is even.',
+  },
+  es: {
+    on: 'en', none: 'ninguno', noneFem: 'ninguna', attackers: 'Atacantes', defenders: 'Defensores',
+    controlW: 'Piezas blancas que la controlan', controlB: 'Piezas negras que la controlan',
+    hangingHead: 'Atención, piezas en peligro:', noHanging: 'Ninguna de tus piezas está en peligro.', inCheck: 'Tu rey está en jaque.',
+    youTook: 'Has capturado', oppTook: 'Tu rival ha capturado', nothing: 'nada', and: 'y',
+    ahead: (n) => `Vas ganando por ${n} punto${n === 1 ? '' : 's'}.`,
+    behind: (n) => `Tu rival va ganando por ${n} punto${n === 1 ? '' : 's'}.`,
+    even: 'Material igualado.',
+  },
+  fr: {
+    on: 'en', none: 'aucun', noneFem: 'aucune', attackers: 'Attaquants', defenders: 'Défenseurs',
+    controlW: 'Pièces blanches qui la contrôlent', controlB: 'Pièces noires qui la contrôlent',
+    hangingHead: 'Attention, pièces en prise :', noHanging: "Aucune de vos pièces n'est en prise.", inCheck: 'Votre roi est en échec.',
+    youTook: 'Vous avez pris', oppTook: 'Votre adversaire a pris', nothing: 'rien', and: 'et',
+    ahead: (n) => `Vous avez ${n} point${n === 1 ? '' : 's'} d'avance.`,
+    behind: (n) => `Votre adversaire a ${n} point${n === 1 ? '' : 's'} d'avance.`,
+    even: 'Matériel égal.',
+  },
+};
+
+function IW() {
+  return INFO_WORDS[getLanguage()] || INFO_WORDS.it;
+}
+
+// I due punti in francese vogliono lo spazio prima.
+function colon() {
+  return getLanguage() === 'fr' ? ' :' : ':';
+}
+
+// Elenco dei pezzi su un insieme di caselle, dal meno prezioso (il primo
+// che conviene usare per catturare): "pedone in Empoli 3, cavallo in
+// Firenze 3".
+function pieceList(chess, squares, { fem = false } = {}) {
+  if (squares.length === 0) return (fem && IW().noneFem) || IW().none;
+  return squares
+    .map((sq) => ({ sq, p: chess.get(sq) }))
+    .filter((x) => x.p)
+    .sort((a, b) => PIECE_VALUES[a.p.type] - PIECE_VALUES[b.p.type])
+    .map((x) => `${pieceName(x.p.type)} ${IW().on} ${squareToCity(x.sq)}`)
+    .join(', ');
+}
+
+// Comando "i" + casella: cosa c'è e chi la controlla. Con un pezzo sopra:
+// attaccanti (l'altro colore) e difensori (lo stesso colore); vuota: i
+// pezzi bianchi e neri che ci possono arrivare.
+export function describeSquareInfo(fen, square) {
+  const chess = new Chess(fen);
+  const piece = chess.get(square);
+  const w = IW();
+  const c = colon();
+  if (piece) {
+    const opp = piece.color === 'w' ? 'b' : 'w';
+    const attackers = pieceList(chess, chess.attackers(square, opp));
+    const defenders = pieceList(chess, chess.attackers(square, piece.color));
+    return `${squareToCity(square)}, ${pieceWithColor(piece)}. ${w.attackers}${c} ${attackers}. ${w.defenders}${c} ${defenders}.`;
+  }
+  const byW = pieceList(chess, chess.attackers(square, 'w'), { fem: true });
+  const byB = pieceList(chess, chess.attackers(square, 'b'), { fem: true });
+  return `${squareToCity(square)}, ${L().empty}. ${w.controlW}${c} ${byW}. ${w.controlB}${c} ${byB}.`;
+}
+
+// Pezzi del giocatore (re escluso) che l'avversario può mangiare con
+// guadagno: attaccati e non difesi, oppure attaccati da un pezzo che vale
+// meno (una torre attaccata da un pedone è in pericolo anche se difesa).
+export function findHangingPieces(fen, color) {
+  const chess = new Chess(fen);
+  const opp = color === 'w' ? 'b' : 'w';
+  const out = [];
+  chess.board().flat().forEach((cell) => {
+    if (!cell || cell.color !== color || cell.type === 'k') return;
+    const attackers = chess.attackers(cell.square, opp);
+    if (attackers.length === 0) return;
+    const defenders = chess.attackers(cell.square, color);
+    const cheapest = Math.min(...attackers.map((sq) => PIECE_VALUES[chess.get(sq).type]));
+    if (defenders.length === 0 || cheapest < PIECE_VALUES[cell.type]) {
+      out.push({ square: cell.square, type: cell.type, attackers, defenders });
+    }
+  });
+  // Prima i pezzi che valgono di più.
+  return out.sort((a, b) => PIECE_VALUES[b.type] - PIECE_VALUES[a.type]);
+}
+
+// Comando "a" (attenzione).
+export function describeHangingPieces(fen, color) {
+  const chess = new Chess(fen);
+  const w = IW();
+  const c = colon();
+  const check = chess.isCheck() && chess.turn() === color ? `${w.inCheck} ` : '';
+  const hanging = findHangingPieces(fen, color);
+  if (hanging.length === 0) return `${check}${w.noHanging}`;
+  const parts = hanging.map((h) =>
+    `${capitalize(pieceName(h.type))} ${w.on} ${squareToCity(h.square)}. ${w.attackers}${c} ${pieceList(chess, h.attackers)}. ${w.defenders}${c} ${pieceList(chess, h.defenders)}.`
+  );
+  return `${check}${w.hangingHead} ${parts.join(' ')}`;
+}
+
+// "un cavallo", "2 pedoni", "una torre" / "a knight", "2 pawns"...
+function countedPiece(type, n) {
+  const lang = getLanguage();
+  if (lang === 'en') return n === 1 ? `a ${pieceName(type)}` : `${n} ${PIECE_PLURAL_EN[type]}`;
+  const forms = { es: PIECE_FORMS_ES, fr: PIECE_FORMS_FR }[lang] || PIECE_FORMS_IT;
+  const f = forms[type];
+  if (n > 1) return `${n} ${f.many}`;
+  const article = { es: f.fem ? 'una' : 'un', fr: f.fem ? 'une' : 'un' }[lang] || (f.fem ? 'una' : 'un');
+  return `${article} ${f.one}`;
+}
+
+function joinWithAnd(items) {
+  if (items.length <= 1) return items.join('');
+  const and = IW().and;
+  if (getLanguage() === 'en' && items.length > 2) return `${items.slice(0, -1).join(', ')}, ${and} ${items[items.length - 1]}`;
+  return `${items.slice(0, -1).join(', ')} ${and} ${items[items.length - 1]}`;
+}
+
+// Pezzi mancanti di un colore rispetto alla posizione iniziale. Un pezzo in
+// più del normale (dama da promozione) viene da un pedone: quel pedone non
+// è stato mangiato.
+function missingPieces(chess, color) {
+  const start = { q: 1, r: 2, b: 2, n: 2, p: 8 };
+  const now = { q: 0, r: 0, b: 0, n: 0, p: 0 };
+  chess.board().flat().forEach((cell) => {
+    if (cell && cell.color === color && cell.type !== 'k') now[cell.type] += 1;
+  });
+  let promoted = 0;
+  const missing = {};
+  ['q', 'r', 'b', 'n'].forEach((type) => {
+    promoted += Math.max(0, now[type] - start[type]);
+    missing[type] = Math.max(0, start[type] - now[type]);
+  });
+  missing.p = Math.max(0, start.p - now.p - promoted);
+  const material = Object.entries(now).reduce((sum, [type, n]) => sum + PIECE_VALUES[type] * n, 0);
+  return { missing, material };
+}
+
+// Comando "x" (materiale): cosa ha mangiato ognuno e chi è in vantaggio,
+// con i valori classici (pedone 1, cavallo e alfiere 3, torre 5, dama 9).
+export function describeMaterial(fen, color) {
+  const chess = new Chess(fen);
+  const opp = color === 'w' ? 'b' : 'w';
+  const mine = missingPieces(chess, color);
+  const theirs = missingPieces(chess, opp);
+  const w = IW();
+  const c = colon();
+  const list = (missing) => {
+    const items = ['q', 'r', 'b', 'n', 'p'].filter((type) => missing[type] > 0).map((type) => countedPiece(type, missing[type]));
+    return items.length ? joinWithAnd(items) : w.nothing;
+  };
+  const diff = mine.material - theirs.material;
+  const balance = diff > 0 ? w.ahead(diff) : diff < 0 ? w.behind(-diff) : w.even;
+  return `${w.youTook}${c} ${list(theirs.missing)}. ${w.oppTook}${c} ${list(mine.missing)}. ${balance}`;
 }
 
 // Testo naturale di una durata in millisecondi, per gli avvisi tempo.

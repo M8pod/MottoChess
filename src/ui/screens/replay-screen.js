@@ -20,6 +20,7 @@ import { factionsByColor } from '../../themes/factions.js';
 import { PIECE_SET_CHOICES, pieceSetLabel, pieceSetLabelsAllLanguages } from '../../themes/pieces.js';
 import { boardColorsFor } from '../board-colors.js';
 import { BoardView } from '../board.js';
+import { openingNameForFen, lastOpeningName, OPENING_MAX_PLY } from '../../themes/openings.js';
 
 const SPEEDS = [
   { value: 'lenta', label: 'Lenta (una mossa ogni 8 secondi)', ms: 8000 },
@@ -312,12 +313,19 @@ export function renderReplayScreen(container, { settings, sound, narrator, navig
     else sound.playGame('move', ctx);
 
     const status = core.status();
+    const alwaysFrom = !!settings.announceFromSquare;
     const moveText =
       settings.narrationStyle === 'compatto'
-        ? moveToCompactText(moveObj, { announceMate: true })
-        : moveToExpandedText(moveObj, { isCheck: status.isCheck, isCheckmate: status.isCheckmate });
+        ? moveToCompactText(moveObj, { announceMate: true, alwaysFrom })
+        : moveToExpandedText(moveObj, { isCheck: status.isCheck, isCheckmate: status.isCheckmate, alwaysFrom });
     const mateText = status.isCheckmate && settings.narrationStyle !== 'compatto' ? `, ${t('scacco matto')}` : '';
     narrator.announce(`${n}, ${COLOR_IT[color]}: ${moveText}${mateText}`);
+    // Nome dell'apertura anche in riproduzione, se attivo nelle Impostazioni.
+    if (settings.announceOpenings && ply <= OPENING_MAX_PLY) {
+      const opening = openingNameForFen(core.fen);
+      const earlier = lastOpeningName(core.history({ verbose: true }).slice(0, -1).map((m) => m.after));
+      if (opening && opening !== earlier) narrator.announce(t('Apertura: {name}.', { name: opening }));
+    }
     if (status.isCheck && !status.isCheckmate) sound.playGame('check', ctx);
     if (moveObj.isPromotion()) {
       sound.playGame('promotion', ctx);

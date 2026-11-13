@@ -67,6 +67,12 @@ export const AMBIENT_TRACKS = {
 export const DEFAULT_SETTINGS = {
   themeSoundsEnabled: true,
   narrationStyle: 'compatto', // 'compatto' | 'espanso'
+  // Narrazione aggiuntiva (13/11/2026), ognuna si spegne dalle Impostazioni:
+  // casella di partenza in ogni mossa ("cavallo da Genova 1 a Firenze 3"),
+  // nome delle aperture, commento di Stockfish a fine partita.
+  announceFromSquare: false,
+  announceOpenings: true,
+  postGameAnalysis: true,
   timeWarning10Enabled: true,
   timeWarning5Enabled: true,
   timeElapsedEvery10MinEnabled: true,

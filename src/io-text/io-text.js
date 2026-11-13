@@ -303,6 +303,69 @@ const COLOR_LETTERS = {
 const CMD_VOICE_RE = /^v$/i;
 const CMD_MUSIC_RE = /^m\s*([+-])?$/i;
 
+// Comandi aggiunti il 13/11/2026 (richiesta di Roberto), ognuno con una
+// scorciatoia da tastiera e le frasi per la dettatura nelle quattro lingue.
+// Il testo viene prima ridotto a minuscole senza accenti né punteggiatura
+// (l'apostrofo diventa spazio: "cosa c'è" -> "cosa c e").
+//  - "a" / "attenzione": i propri pezzi in presa;
+//  - "x" / "materiale": pezzi mangiati da ognuno e chi è in vantaggio
+//    (la x è il simbolo della cattura);
+//  - "i" + casella / "casella e4" / "cosa c'è in Empoli 4": cosa c'è in una
+//    casella e chi la attacca o la difende;
+//  - "apertura": il nome dell'apertura giocata.
+const CMD_ATTENTION_WORDS = new Set([
+  'a', 'attenzione', 'pezzi in presa', 'in presa',
+  'attention', 'hanging', 'hanging pieces', 'threats',
+  'atencion', 'piezas en peligro', 'en peligro',
+  'pieces en prise', 'en prise',
+]);
+const CMD_MATERIAL_WORDS = new Set([
+  'x', 'materiale', 'pezzi mangiati', 'mangiati', 'catture',
+  'material', 'captured', 'captures', 'captured pieces',
+  'capturadas', 'piezas capturadas',
+  'materiel', 'prises', 'pieces prises',
+]);
+const CMD_OPENING_WORDS = new Set(['apertura', 'opening', 'ouverture', 'che apertura e', 'quale apertura']);
+// Inizi di frase che chiedono una casella; il resto è la casella stessa.
+const SQUARE_INFO_PREFIXES = [
+  'cosa c e in', 'cosa c e su', 'cosa ce in', 'che c e in', 'che c e su', 'cosa c e nella casella', 'casella', 'i',
+  'what is on', 'what s on', 'whats on', 'what is in', 'square',
+  'que hay en', 'casilla',
+  'qu y a t il en', 'qu y a t il sur', 'case',
+];
+
+function normalizeCommand(text) {
+  return stripAccents(text.toLowerCase())
+    .replace(/['’-]/g, ' ')
+    .replace(/[,.;:!?¿¡]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+// "e4", "e 4", "Empoli 4", "Empoli quattro", "empoli4" -> "e4" (o null).
+function parseSquareWords(text) {
+  const words = text.split(' ').map(normalizeWord).flatMap(splitCityDigit).filter(Boolean);
+  const joined = words.join('');
+  if (/^[a-h][1-8]$/.test(joined)) return joined;
+  if (words.length === 2 && FILE_BY_CITY_LOWER[words[0]] && /^[1-8]$/.test(words[1])) {
+    return FILE_BY_CITY_LOWER[words[0]] + words[1];
+  }
+  return null;
+}
+
+function parseSquareInfo(norm) {
+  // "ie4" scritto attaccato.
+  const glued = /^i([a-h][1-8])$/.exec(norm);
+  if (glued) return glued[1];
+  for (const prefix of SQUARE_INFO_PREFIXES) {
+    if (norm.startsWith(`${prefix} `)) {
+      const square = parseSquareWords(norm.slice(prefix.length + 1));
+      if (square) return square;
+    }
+  }
+  return null;
+}
+
 // Ritorna uno tra:
 //  { type: 'help' } | { type: 'diagnostics' }
 //  { type: 'clock' }
@@ -310,6 +373,8 @@ const CMD_MUSIC_RE = /^m\s*([+-])?$/i;
 //  { type: 'rank', rank: '1'-'8' } | { type: 'file', file: 'a'-'h' }
 //  { type: 'pieces', piece: 'k'|'q'|'r'|'b'|'n'|'p', color: 'w'|'b'|null }
 //  { type: 'narrationStyle' }
+//  { type: 'attention' } | { type: 'material' } | { type: 'opening' }
+//  { type: 'squareInfo', square: 'e4' }
 //  { type: 'musicToggle' } | { type: 'musicVolume', delta }
 //  null se il testo non è un comando riconosciuto
 export function parseCommandText(rawText) {
@@ -330,6 +395,13 @@ export function parseCommandText(rawText) {
   if (m) return { type: 'file', file: m[1].toLowerCase() };
 
   if (CMD_VOICE_RE.test(t)) return { type: 'narrationStyle' };
+
+  const norm = normalizeCommand(t);
+  if (CMD_ATTENTION_WORDS.has(norm)) return { type: 'attention' };
+  if (CMD_MATERIAL_WORDS.has(norm)) return { type: 'material' };
+  if (CMD_OPENING_WORDS.has(norm)) return { type: 'opening' };
+  const infoSquare = parseSquareInfo(norm);
+  if (infoSquare) return { type: 'squareInfo', square: infoSquare };
 
   m = CMD_MUSIC_RE.exec(t);
   if (m) {

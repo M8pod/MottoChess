@@ -49,7 +49,7 @@ const LEVELS = {
 // sempre molto prima.
 const WEAK_MAX_MS = 3000;
 // Valore in centipedoni dato a "matto in N" per poterlo confrontare.
-const MATE_CP = 100000;
+export const MATE_CP = 100000;
 
 const STOCKFISH_WORKER_URL = new URL('../vendor/stockfish/stockfish.js', import.meta.url);
 
@@ -129,6 +129,20 @@ export class Engine {
     if (!uci || uci === '(none)') return null;
     if (this.level.weak && candidates.size > 0) return pickWeakMove(candidates, this.level) || uci;
     return uci;
+  }
+
+  // Analisi di una posizione a piena forza, per il commento di fine partita:
+  // ritorna le migliori `multipv` mosse con la valutazione in centipedoni dal
+  // punto di vista di chi muove, la migliore per prima ([{ move, cp }]).
+  // Va usata su un'istanza dedicata, non su quella che sta giocando.
+  async analyse(fen, { depth = 12, ms = 400, multipv = 2 } = {}) {
+    this._command('setoption name Skill Level value 20');
+    this._command(`setoption name MultiPV value ${multipv}`);
+    this.positionCmd = `position fen ${fen}`;
+    this._command(this.positionCmd);
+    const candidates = new Map();
+    await this._goWithLimits(`go depth ${depth} movetime ${ms}`, ms, candidates);
+    return [...candidates.entries()].sort((a, b) => a[0] - b[0]).map(([, c]) => c);
   }
 
   destroy() {

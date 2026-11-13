@@ -54,6 +54,17 @@ La convenzione a1-sempre-scura (vedi Impostazioni → Grafica scacchiera) resta 
 - Stile narrazione (impostabile in Impostazioni, si applica a TUTTE le mosse, proprie e avversarie):
   - **Compatto**: notazione tipo Nf3, Qxc5, con pronuncia esplicita forzata (`sanToSpeech` in `themes/i18n-voice.js`): lettere e caselle separate da spazi, simboli resi a parole. `Nf3` → "N f3", `Qxc5+` → "Q prende c5, scacco", `e8=Q` → "e8 promuove a Q", `O-O` → "arrocco corto", `#` → "scacco matto" (omesso nell'annuncio a caldo, perché segue "Scacco matto. Hai vinto/perso.")
   - **Espanso**: es. "cavallo in Firenze 3", "dama mangia torre in Como 5"; se la mossa dà scacco, aggiungere ", scacco" in coda alla descrizione
+- **Casella di partenza** (13/11/2026): detta sempre quando due pezzi uguali potevano fare la stessa mossa ("cavallo di Firenze 3 mangia pedone in Domodossola 4", compatto "N f3 prende d4"). Con l'impostazione "Pronuncia sempre la casella di partenza" vale per ogni mossa: espanso "cavallo da Genova 1 a Firenze 3", "pedone da Empoli 2 a Empoli 4" (catture con "di"), compatto in notazione lunga "N g1 f3", "e2 e4". Vale in partita, nei comandi l e in riproduzione.
+- **Aperture** (13/11/2026, `themes/openings.js`): circa 80 aperture e varianti con nome in 4 lingue, riconosciute per posizione (anche per trasposizione) nelle prime 24 semimosse. Se attivo in Impostazioni, dopo la mossa che la raggiunge: "Apertura: Partita italiana." Il comando "apertura" la ripete.
+
+### Comandi informativi aggiunti il 13/11/2026
+- **a** / "attenzione" / "pezzi in presa": i propri pezzi in presa (re escluso), cioè attaccati e non difesi, o attaccati da un pezzo che vale meno; per ognuno attaccanti e difensori. Se il re è sotto scacco lo dice prima.
+- **i + casella** (i e4, ie4, i Empoli 4) / "casella e4" / "cosa c'è in Empoli 4": pezzo sulla casella, attaccanti e difensori; se vuota, i pezzi bianchi e neri che la controllano.
+- **x** / "materiale" / "pezzi mangiati": pezzi mangiati da ognuno e vantaggio in punti (pedone 1, cavallo e alfiere 3, torre 5, dama 9).
+- Frasi di dettatura anche in inglese, spagnolo e francese (vedi `io-text/io-text.js`).
+
+### Commento a fine partita (13/11/2026, `analysis/game-analysis.js`)
+Se attivo in Impostazioni (e il giocatore ha fatto almeno 3 mosse), a partita finita un'istanza dedicata di Stockfish a piena forza valuta tutte le posizioni (circa 0,2-0,4 secondi l'una). Le mosse del giocatore sono classificate in probabilità di vittoria come su Lichess: imprecisione 10, errore 20, errore grave 30. Partita persa: i tre errori più pesanti con la mossa migliore. Vinta o patta: fino a due errori e le mosse migliori (l'unica mossa buona, escluse le ricatture ovvie). Il commento viene letto, resta scritto nel riquadro di fine partita e si riascolta con un pulsante.
 
 ### Inizio partita
 Alla creazione di una nuova partita, il narratore annuncia colore assegnato e chi muove per primo:
@@ -152,6 +163,7 @@ scacchiera**, che apre la schermata `replay` (`src/ui/screens/replay-screen.js`)
 ## Impostazioni (app-wide, persistenti)
 
 - **Accessibilità**: on/off suoni set tematici (disattivati = ogni evento usa il suono neutro del set default, MAI il silenzio); stile narrazione compatto/espanso (vedi sopra)
+  - **Narrazione aggiuntiva** (13/11/2026): "Pronuncia sempre la casella di partenza" (spenta di default), "Pronuncia il nome delle aperture" (accesa), "Commento e analisi a fine partita" (acceso). Vedi sopra.
   - **Notifiche vocali tempo** (attive di default, ciascuna disattivabile singolarmente): avviso al 10% tempo residuo; avviso al 5% tempo residuo; annuncio tempo trascorso ogni 10 minuti (solo partite con tempo > 20 minuti). Vedi dettagli in "Notifiche vocali tempo".
 - **Audio**: volume separato per suoni di gioco (default 90%), suoni UI/menu (default 80%) e musica di sottofondo (default 15%; i cursori sono letti in percentuale e al rilascio fanno sentire un suono di prova; la riproduzione passa dalla Web Audio API perché Safari su iPhone/iPad ignora il volume degli elementi `<audio>` — volutamente basso per non competere con narrazione e suoni di gioco/set — non esiste un volume "voiceover" separato: VoiceOver è lo screen reader dell'utente, il suo volume è dell'OS, non dell'app)
 - **Grafica scacchiera**: due select indipendenti colore caselle chiare/scure
