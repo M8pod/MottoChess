@@ -13,6 +13,7 @@
 // C cavalier. Le tabelle di riconoscimento accettano entrambi i sistemi in
 // qualunque lingua: chi scrive "Empoli 4" o "Echo 4" viene capito comunque.
 import { getLanguage } from '../i18n/i18n.js';
+import { Chess } from '../vendor/chess.js';
 
 const LANG = {
   it: {
@@ -235,8 +236,30 @@ export function sanToSpeech(san, { announceMate = true } = {}) {
   return parts.join(' ') + suffix;
 }
 
+// Vero se un altro pezzo dello stesso tipo e colore poteva andare sulla
+// stessa casella (es. cavalli in f3 e f5 che possono entrambi mangiare in
+// d4). Segnalato dai tester con JAWS (13/11/2026): la voce diceva solo
+// "cavallo mangia pedone in Domodossola 4" senza dire QUALE cavallo.
+function isAmbiguousMove(move) {
+  if (!move || !move.before || move.isKingsideCastle?.() || move.isQueensideCastle?.()) return false;
+  try {
+    return new Chess(move.before).moves({ verbose: true })
+      .some((m) => m.to === move.to && m.piece === move.piece && m.from !== move.from);
+  } catch {
+    return false;
+  }
+}
+
+// Nella notazione compatta, se la mossa è ambigua si dice la casella di
+// partenza COMPLETA ("C f3 prende d4") invece della sola lettera o del solo
+// numero della notazione standard ("C 3 prende d4"), più difficile da capire
+// a orecchio. I pedoni restano come sono: "e prende d4" basta già.
 export function moveToCompactText(move, opts) {
-  return sanToSpeech(move.san, opts);
+  let san = move.san;
+  if (move.piece !== 'p' && isAmbiguousMove(move)) {
+    san = san.replace(/^([NBRQK])[a-h]?[1-8]?/, `$1${move.from}`);
+  }
+  return sanToSpeech(san, opts);
 }
 
 // Testo "espanso" per una mossa già eseguita.
@@ -253,16 +276,21 @@ export function moveToExpandedText(move, { isCheck = false, isCheckmate = false 
     phrase = w.castleLong;
   } else {
     const destCity = squareToCity(move.to);
-    const moverName = pieceName(move.piece);
-
     const P = {
-      it: { ep: 'en passant, pedone mangia pedone in', takes: 'mangia', on: 'in', to: 'in' },
-      en: { ep: 'en passant, pawn takes pawn on', takes: 'takes', on: 'on', to: 'to' },
-      es: { ep: 'al paso, peón toma peón en', takes: 'toma', on: 'en', to: 'a' },
-      fr: { ep: 'prise en passant, pion prend pion en', takes: 'prend', on: 'en', to: 'en' },
-    }[lang] || { ep: 'en passant, pedone mangia pedone in', takes: 'mangia', on: 'in', to: 'in' };
+      it: { ep: 'en passant, pedone mangia pedone in', epFrom: 'en passant, pedone', epTail: 'mangia pedone in', takes: 'mangia', on: 'in', to: 'in', from: 'di' },
+      en: { ep: 'en passant, pawn takes pawn on', epFrom: 'en passant, pawn', epTail: 'takes pawn on', takes: 'takes', on: 'on', to: 'to', from: 'from' },
+      es: { ep: 'al paso, peón toma peón en', epFrom: 'al paso, peón', epTail: 'toma peón en', takes: 'toma', on: 'en', to: 'a', from: 'de' },
+      fr: { ep: 'prise en passant, pion prend pion en', epFrom: 'prise en passant, pion', epTail: 'prend pion en', takes: 'prend', on: 'en', to: 'en', from: 'de' },
+    }[lang] || { ep: 'en passant, pedone mangia pedone in', epFrom: 'en passant, pedone', epTail: 'mangia pedone in', takes: 'mangia', on: 'in', to: 'in', from: 'di' };
+    // Se due pezzi uguali potevano andare sulla stessa casella, si dice da
+    // dove parte quello mosso: "cavallo di Firenze 3 mangia pedone in
+    // Domodossola 4".
+    const ambiguous = isAmbiguousMove(move);
+    const fromPart = ambiguous ? ` ${P.from} ${squareToCity(move.from)}` : '';
+    const moverName = `${pieceName(move.piece)}${fromPart}`;
+
     if (move.isEnPassant()) {
-      phrase = `${P.ep} ${destCity}`;
+      phrase = ambiguous ? `${P.epFrom}${fromPart} ${P.epTail} ${destCity}` : `${P.ep} ${destCity}`;
     } else if (move.captured) {
       phrase = `${moverName} ${P.takes} ${pieceName(move.captured)} ${P.on} ${destCity}`;
     } else if (move.piece !== 'p') {
