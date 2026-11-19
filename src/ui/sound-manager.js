@@ -155,6 +155,32 @@ const GAME_SETS = {
   },
 };
 
+// Set Orsi polari vs Pinguini (19/11/2026): stessa logica per fazione dei
+// Cani vs Gatti. Effetti da anteprime Freesound CC0 scelte da Roberto
+// (orsi-pinguini-lavori/suoni/crea.py e freesound/elenco.tsv); sigle ed
+// esiti fatti con Ongaku (ACE-Step) più i versi Freesound. Scacco e dinieghi
+// ricadono sul set default, come nei Cani vs Gatti.
+GAME_SETS['orsi-pinguini'] = {
+  base: 'assets/sounds/orsi-pinguini/',
+  files: {
+    move_orsi: 'op_move_orsi.wav',
+    move_pinguini: 'op_move_pinguini.wav',
+    capture_orsi: 'op_capture_orsi.wav',
+    capture_pinguini: 'op_capture_pinguini.wav',
+    touch: 'op_touch.wav',
+    castle: 'op_castle.wav',
+    promotion: 'op_promotion.wav',
+    session_orsi: 'op_session_orsi.wav', // sigla Ongaku + ringhio (inizio e fine)
+    session_pinguini: 'op_session_pinguini.wav', // sigla Ongaku + richiamo
+    win_orsi: 'op_win_orsi.wav', // matto e resa/tempo condividono
+    win_pinguini: 'op_win_pinguini.wav',
+    loss_orsi: 'op_loss_orsi.wav',
+    loss_pinguini: 'op_loss_pinguini.wav',
+    outcome_draw: 'op_draw.wav',
+  },
+  resolve: GAME_SETS['cani-gatti'].resolve,
+};
+
 const UI_SOUND_FILES = {
   navigation: 'chess_ui_navigation.wav',
 };

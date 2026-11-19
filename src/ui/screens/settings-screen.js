@@ -202,7 +202,7 @@ export function renderSettingsScreen(container, ctx, payload) {
   const boardInfo = document.createElement('p');
   boardInfo.className = 'field-hint';
   boardInfo.textContent = t(
-    "Le caselle chiare si scelgono fra colori chiari, le scure fra colori scuri. Per ognuna puoi regolare l'intensità. Le scelte vengono salvate su questo dispositivo e restano per le partite successive. I set Judo e Cani vs Gatti usano colori propri."
+    "Le caselle chiare si scelgono fra colori chiari, le scure fra colori scuri. Per ognuna puoi regolare l'intensità. Le scelte vengono salvate su questo dispositivo e restano per le partite successive. I set Judo, Cani vs Gatti e Orsi polari vs Pinguini usano colori propri."
   );
   boardFs.appendChild(boardInfo);
 

@@ -49,6 +49,8 @@ export const DARK_SQUARE_COLORS = {
 export const PIECE_SET_SQUARE_COLORS = {
   judo: { light: '#F2EDE4', dark: '#243B6B' },
   'cani-gatti': { light: '#CFE4F2', dark: '#6E8FB5' },
+  // Provvisori: da misurare coi pezzi veri.
+  'orsi-pinguini': { light: '#CFE3EE', dark: '#5F8FA8' },
 };
 
 // Intensità colore caselle: 0 = molto tenue, 50 = colore di base, 100 = molto
@@ -62,7 +64,24 @@ export const AMBIENT_TRACKS = {
   newage: { label: 'New age (rilassante)', file: 'newage_loop_v1.mp3' },
   giappone: { label: 'Orientale', file: 'giappone_loop_v1.mp3' },
   spiaggia: { label: 'Spiaggia', file: 'spiaggia_loop_v1.mp3' },
+  // Ambiente a strati (vento artico, tintinnii, renne che passano, oh oh oh
+  // lontano), 19/11/2026: solo con i set che lo elencano in "sets"
+  // (Orsi polari vs Pinguini e futuri set natalizi). Sorgenti in
+  // orsi-pinguini-lavori/suoni/ambiente/componi.py.
+  polonord: { label: 'Polo Nord (Natale)', file: 'polonord_loop_v1.mp3', sets: ['orsi-pinguini'] },
 };
+
+// Una traccia con "sets" si può usare solo con quei set pezzi.
+export function ambientTrackAllowed(key, pieceSet) {
+  const track = AMBIENT_TRACKS[key];
+  return Boolean(track) && (!track.sets || track.sets.includes(pieceSet));
+}
+
+// Traccia propria del set (la prima riservata a lui), o null.
+export function setOwnAmbientTrack(pieceSet) {
+  const found = Object.entries(AMBIENT_TRACKS).find(([, tr]) => tr.sets && tr.sets.includes(pieceSet));
+  return found ? found[0] : null;
+}
 
 export const DEFAULT_SETTINGS = {
   themeSoundsEnabled: true,

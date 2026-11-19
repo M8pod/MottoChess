@@ -35,9 +35,9 @@ const COLOR_NAME = { w: 'Bianco', b: 'Nero' };
 
 // Nomi delle fazioni per le intestazioni (i file e il codice usano quelli
 // italiani).
-const FACTION_EN = { gatti: 'cats', cani: 'dogs' };
-const FACTION_ES = { gatti: 'gatos', cani: 'perros' };
-const FACTION_FR = { gatti: 'chats', cani: 'chiens' };
+const FACTION_EN = { gatti: 'cats', cani: 'dogs', orsi: 'polar bears', pinguini: 'penguins' };
+const FACTION_ES = { gatti: 'gatos', cani: 'perros', orsi: 'osos polares', pinguini: 'pingüinos' };
+const FACTION_FR = { gatti: 'chats', cani: 'chiens', orsi: 'ours polaires', pinguini: 'manchots' };
 
 function factionPhrase(faction) {
   if (!faction) return '';

@@ -1,6 +1,6 @@
 # Anteprima: pezzi PNG su caselle colorate. uso: preview.py out.png chiaraHEX scuraHEX pezzo1.png [pezzo2.png ...]
 import sys, struct, zlib, subprocess
-sys.path.insert(0,'/Users/robertolachin/Dev/MottoChess/tools')
+sys.path.insert(0,'/Users/robertolachin/Dev/Games/MottoChess/tools')
 from process_piece import write_png
 def read_rgba(path):
     bmp=path+'.p.bmp'; subprocess.run(['sips','-s','format','bmp',path,'--out',bmp],check=True,capture_output=True)

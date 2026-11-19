@@ -24,6 +24,7 @@
 // Set con fazione legata al colore e file nominati per fazione.
 export const FIXED_FACTIONS = {
   'cani-gatti': { w: 'gatti', b: 'cani' },
+  'orsi-pinguini': { w: 'orsi', b: 'pinguini' },
 };
 
 // Set con fazione da scegliere. Formato di una voce:

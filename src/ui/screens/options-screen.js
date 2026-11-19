@@ -1,6 +1,6 @@
 import { loadLastConfig, saveLastConfig } from '../../session/options.js';
 import { eloForLevel } from '../../engine/engine.js';
-import { AMBIENT_TRACKS } from '../../session/settings.js';
+import { AMBIENT_TRACKS, ambientTrackAllowed, setOwnAmbientTrack } from '../../session/settings.js';
 import { factionSet, resolveFaction } from '../../themes/factions.js';
 import { hasPlaceholderArt, PIECE_SET_CHOICES } from '../../themes/pieces.js';
 import { AmbientPlayer } from '../ambient-player.js';
@@ -138,6 +138,7 @@ export function renderOptionsScreen(container, ctx) {
     radio.disabled = !theme.available;
     radio.checked = theme.value === (config.pieceSet || 'classico');
     radio.addEventListener('change', renderFactionChoice);
+    radio.addEventListener('change', () => refreshAmbientChoices(true));
     // I disegni di un set possono non essere ancora arrivati: il set resta
     // giocabile con i pezzi classici come segnaposto, ma va detto.
     const note = theme.available && hasPlaceholderArt(theme.value)
@@ -249,13 +250,6 @@ export function renderOptionsScreen(container, ctx) {
   const ambientLabel = document.createElement('label');
   ambientLabel.textContent = t('Traccia da suonare durante la partita (i pulsanti Ascolta servono solo per sentirle)');
   const ambientSelect = document.createElement('select');
-  Object.entries(AMBIENT_TRACKS).forEach(([key, track]) => {
-    const opt = document.createElement('option');
-    opt.value = key;
-    opt.textContent = t(track.label);
-    ambientSelect.appendChild(opt);
-  });
-  ambientSelect.value = config.ambientTrack || 'nessuna';
   ambientLabel.appendChild(ambientSelect);
   ambientDiv.appendChild(ambientLabel);
   ambientFieldset.appendChild(ambientDiv);
@@ -287,17 +281,46 @@ export function renderOptionsScreen(container, ctx) {
 
   const previewRow = document.createElement('div');
   previewRow.className = 'preview-row';
-  Object.entries(AMBIENT_TRACKS)
-    .filter(([, track]) => track.file)
-    .forEach(([key]) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.addEventListener('click', () => togglePreview(key));
-      previewButtons.set(key, btn);
-      previewRow.appendChild(btn);
-    });
-  updatePreviewButtons();
   ambientFieldset.appendChild(previewRow);
+
+  // Tracce e pulsanti Ascolta dipendono dal set scelto: alcune tracce (Polo
+  // Nord) esistono solo con il loro set. setChanged: l'utente ha appena
+  // cambiato set -> la traccia propria del set viene proposta da sola, e una
+  // traccia non più ammessa torna a "nessuna".
+  function refreshAmbientChoices(setChanged = false) {
+    const setName = form.querySelector('input[name="pieceSet"]:checked').value;
+    const wanted = setChanged ? ambientSelect.value : (config.ambientTrack || 'nessuna');
+    ambientSelect.replaceChildren();
+    Object.entries(AMBIENT_TRACKS)
+      .filter(([key]) => ambientTrackAllowed(key, setName))
+      .forEach(([key, track]) => {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = t(track.label);
+        ambientSelect.appendChild(opt);
+      });
+    const own = setOwnAmbientTrack(setName);
+    let value = ambientTrackAllowed(wanted, setName) ? wanted : 'nessuna';
+    if (setChanged && own) value = own;
+    ambientSelect.value = value;
+    if (previewKey && !ambientTrackAllowed(previewKey, setName)) {
+      ambientPreview.stop();
+      previewKey = null;
+    }
+    previewButtons.clear();
+    previewRow.replaceChildren();
+    Object.entries(AMBIENT_TRACKS)
+      .filter(([key, track]) => track.file && ambientTrackAllowed(key, setName))
+      .forEach(([key]) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.addEventListener('click', () => togglePreview(key));
+        previewButtons.set(key, btn);
+        previewRow.appendChild(btn);
+      });
+    updatePreviewButtons();
+  }
+  refreshAmbientChoices();
   form.appendChild(ambientFieldset);
 
   const submitBtn = document.createElement('button');

@@ -70,6 +70,7 @@ export default {
   'Classico': 'Classic',
   'Judo (judogi bianco e blu)': 'Judo (white and blue judogi)',
   'Cani vs Gatti': 'Dogs vs Cats',
+  'Orsi polari vs Pinguini': 'Polar Bears vs Penguins',
   'Samurai vs Ninja (in arrivo)': 'Samurai vs Ninja (coming soon)',
   '(disegni in arrivo: per ora pezzi classici)': '(artwork coming soon: classic pieces for now)',
   "I colori e l'intensità delle caselle della scacchiera classica si scelgono in Impostazioni, e restano salvati su questo dispositivo.":
@@ -85,6 +86,7 @@ export default {
   'Nessuna': 'None',
   'New age (rilassante)': 'New age (relaxing)',
   'Orientale': 'Oriental',
+  'Polo Nord (Natale)': 'North Pole (Christmas)',
   'Spiaggia': 'Beach',
 
   // --- Impostazioni ---
@@ -105,8 +107,8 @@ export default {
   'Volume suoni UI/menu': 'Menu sounds volume',
   'Volume musica di sottofondo': 'Background music volume',
   'Grafica scacchiera classica': 'Classic board appearance',
-  "Le caselle chiare si scelgono fra colori chiari, le scure fra colori scuri. Per ognuna puoi regolare l'intensità. Le scelte vengono salvate su questo dispositivo e restano per le partite successive. I set Judo e Cani vs Gatti usano colori propri.":
-    'Light squares are chosen from light colours, dark squares from dark colours. You can adjust the intensity of each. Your choices are saved on this device and kept for future games. The Judo and Dogs vs Cats sets use their own colours.',
+  "Le caselle chiare si scelgono fra colori chiari, le scure fra colori scuri. Per ognuna puoi regolare l'intensità. Le scelte vengono salvate su questo dispositivo e restano per le partite successive. I set Judo, Cani vs Gatti e Orsi polari vs Pinguini usano colori propri.":
+    'Light squares are chosen from light colours, dark squares from dark colours. You can adjust the intensity of each. Your choices are saved on this device and kept for future games. The Judo, Dogs vs Cats and Polar Bears vs Penguins sets use their own colours.',
   'normale': 'normal',
   'più tenue, {n} per cento': 'softer, {n} percent',
   'più intensa, {n} per cento': 'stronger, {n} percent',

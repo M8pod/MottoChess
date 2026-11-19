@@ -24,6 +24,17 @@ const PIECE_SETS = {
     // (utile se si rifà l'intero set). I dodici PNG ci sono dall'11/11/2026.
     artReady: true,
   },
+  // Orsi polari (bianco) vs Pinguini (nero), 19/11/2026: stesso oggetto per
+  // lo stesso pezzo nelle due squadre (igloo = torre...), vedi
+  // motto-chess-set-orsi-pinguini.md. Scacchiera di ghiaccio a mosaico
+  // (ICE_BOARD_SETS in ui/board.js).
+  'orsi-pinguini': {
+    base: 'assets/pieces/orsi-pinguini/',
+    ext: 'png',
+    recolorable: false,
+    byFaction: true,
+    artReady: true,
+  },
 };
 
 // Elenco dei set mostrato all'utente (Opzioni partita, set preferito in
@@ -33,6 +44,7 @@ export const PIECE_SET_CHOICES = [
   { value: 'classico', label: 'Classico', available: true },
   { value: 'judo', label: 'Judo (judogi bianco e blu)', available: true },
   { value: 'cani-gatti', label: 'Cani vs Gatti', available: true },
+  { value: 'orsi-pinguini', label: 'Orsi polari vs Pinguini', available: true },
   { value: 'samurai-ninja', label: 'Samurai vs Ninja (in arrivo)', available: false },
 ];
 

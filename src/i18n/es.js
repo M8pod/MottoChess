@@ -71,6 +71,7 @@ export default {
   'Classico': 'Clásico',
   'Judo (judogi bianco e blu)': 'Judo (judogi blanco y azul)',
   'Cani vs Gatti': 'Perros contra Gatos',
+  'Orsi polari vs Pinguini': 'Osos polares contra Pingüinos',
   'Samurai vs Ninja (in arrivo)': 'Samuráis contra Ninjas (próximamente)',
   '(disegni in arrivo: per ora pezzi classici)': '(dibujos en camino: de momento piezas clásicas)',
   "I colori e l'intensità delle caselle della scacchiera classica si scelgono in Impostazioni, e restano salvati su questo dispositivo.":
@@ -86,6 +87,7 @@ export default {
   'Nessuna': 'Ninguna',
   'New age (rilassante)': 'New age (relajante)',
   'Orientale': 'Oriental',
+  'Polo Nord (Natale)': 'Polo Norte (Navidad)',
   'Spiaggia': 'Playa',
 
   // --- Impostazioni ---
@@ -106,8 +108,8 @@ export default {
   'Volume suoni UI/menu': 'Volumen de los sonidos de menú',
   'Volume musica di sottofondo': 'Volumen de la música de fondo',
   'Grafica scacchiera classica': 'Aspecto del tablero clásico',
-  "Le caselle chiare si scelgono fra colori chiari, le scure fra colori scuri. Per ognuna puoi regolare l'intensità. Le scelte vengono salvate su questo dispositivo e restano per le partite successive. I set Judo e Cani vs Gatti usano colori propri.":
-    'Las casillas claras se eligen entre colores claros y las oscuras entre colores oscuros. Puedes ajustar la intensidad de cada una. Tus elecciones se guardan en este dispositivo y se mantienen para las próximas partidas. Los sets Judo y Perros contra Gatos usan colores propios.',
+  "Le caselle chiare si scelgono fra colori chiari, le scure fra colori scuri. Per ognuna puoi regolare l'intensità. Le scelte vengono salvate su questo dispositivo e restano per le partite successive. I set Judo, Cani vs Gatti e Orsi polari vs Pinguini usano colori propri.":
+    'Las casillas claras se eligen entre colores claros y las oscuras entre colores oscuros. Puedes ajustar la intensidad de cada una. Tus elecciones se guardan en este dispositivo y se mantienen para las próximas partidas. Los sets Judo, Perros contra Gatos y Osos polares contra Pingüinos usan colores propios.',
   'normale': 'normal',
   'più tenue, {n} per cento': 'más suave, {n} por ciento',
   'più intensa, {n} per cento': 'más intensa, {n} por ciento',

@@ -112,6 +112,28 @@ button {
   box-shadow: inset 0 0 0 5px #000000;
 }
 
+/* Scacchiera di ghiaccio (set Orsi polari vs Pinguini): ogni casella mostra
+   il suo pezzetto di un'unica trama di venature grande come tutta la
+   scacchiera (800% = 8 caselle), come le tessere di un mosaico. Le chiare
+   hanno venature più scure, le scure venature più chiare; il bordino
+   interno fa da fuga fra le tessere. */
+.board-ice .square {
+  background-size: 800% 800%;
+  background-position: calc(var(--col) * 100% / 7) calc(var(--row) * 100% / 7);
+  background-repeat: no-repeat;
+}
+.board-ice .square.light {
+  background-image: url("../assets/boards/ghiaccio-venature-chiare.svg");
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.55);
+}
+.board-ice .square.dark {
+  background-image: url("../assets/boards/ghiaccio-venature-scure.svg");
+  box-shadow: inset 0 0 0 1px rgba(20, 50, 75, 0.35);
+}
+.board-ice .square:focus-visible {
+  box-shadow: inset 0 0 0 5px #000000;
+}
+
 .square.selected {
   outline: 3px solid var(--brand-gold);
   outline-offset: -3px;

@@ -6,6 +6,10 @@ import { t } from '../i18n/i18n.js';
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 
 // Convenzione fissa (non configurabile): a1 è sempre casella scura.
+// Set con la scacchiera di ghiaccio a mosaico: un'unica trama di venature
+// (assets/boards/, generata da tools/ice_veins.py) divisa fra le 64 caselle.
+const ICE_BOARD_SETS = new Set(['orsi-pinguini']);
+
 export function isDarkSquare(square) {
   const fileIdx = square.charCodeAt(0) - 97; // 'a' -> 0
   const rank = Number(square[1]);
@@ -52,6 +56,10 @@ export class BoardView {
         btn.className = `square ${isDarkSquare(square) ? 'dark' : 'light'}`;
         btn.setAttribute('role', 'gridcell');
         btn.dataset.square = square;
+        // Posizione visiva della casella: serve alle scacchiere "a mosaico"
+        // (ghiaccio) per mostrare in ogni casella il suo pezzo della trama.
+        btn.style.setProperty('--col', files.indexOf(file));
+        btn.style.setProperty('--row', ranks.indexOf(rank));
         btn.addEventListener('click', () => this.onSquareClick(square));
         rowEl.appendChild(btn);
         this.buttons.set(square, btn);
@@ -115,6 +123,9 @@ export class BoardView {
     } = state;
 
     if (this.orientation !== orientation) this._buildGrid(orientation);
+    // Scacchiera di ghiaccio solo per i set che la prevedono (puro decoro:
+    // colori casella e accessibilità invariati).
+    this.container.classList.toggle('board-ice', ICE_BOARD_SETS.has(pieceSet));
 
     const pieceBySquare = new Map();
     for (const row of boardMatrix) {

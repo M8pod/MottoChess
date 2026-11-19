@@ -7,3 +7,8 @@ cani-gatti-lavori/suoni/dl.sh
 cani-gatti-lavori/prove/
 cani-gatti-lavori/sorgenti/
 cani-gatti-lavori/suoni/grezzi/
+
+# Orsi vs Pinguini: sorgenti pesanti e anteprime Freesound (riscaricabili da elenco.tsv)
+orsi-pinguini-lavori/sorgenti/
+orsi-pinguini-lavori/suoni/freesound/*.mp3
+orsi-pinguini-lavori/suoni/ambiente/freesound/*.mp3

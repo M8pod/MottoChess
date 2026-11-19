@@ -15,7 +15,7 @@ import {
   colorName,
 } from '../../themes/i18n-voice.js';
 import { t, getLanguage } from '../../i18n/i18n.js';
-import { AMBIENT_TRACKS } from '../../session/settings.js';
+import { AMBIENT_TRACKS, ambientTrackAllowed, setOwnAmbientTrack } from '../../session/settings.js';
 import { loadLastConfig, saveLastConfig } from '../../session/options.js';
 import { factionsByColor, playerFaction } from '../../themes/factions.js';
 import { pieceSetLabel } from '../../themes/pieces.js';
@@ -199,7 +199,7 @@ export function renderGameScreen(container, ctx, payload) {
   liveFs.appendChild(liveRow('Stile narrazione', styleSelect));
 
   const trackSelect = document.createElement('select');
-  Object.entries(AMBIENT_TRACKS).forEach(([key, track]) => {
+  Object.entries(AMBIENT_TRACKS).filter(([key]) => ambientTrackAllowed(key, session.pieceSet)).forEach(([key, track]) => {
     const o = document.createElement('option');
     o.value = key;
     o.textContent = t(track.label);
@@ -275,9 +275,10 @@ export function renderGameScreen(container, ctx, payload) {
 
   const boardView = new BoardView(boardContainer, { onSquareClick });
   const ambient = new AmbientPlayer();
-  let ambientTrackKey = AMBIENT_TRACKS[session.ambientTrack] ? session.ambientTrack : 'nessuna';
-  // Ultima traccia vera scelta: "m" riaccende quella dopo averla spenta.
-  let lastRealTrack = ambientTrackKey !== 'nessuna' ? ambientTrackKey : 'newage';
+  let ambientTrackKey = ambientTrackAllowed(session.ambientTrack, session.pieceSet) ? session.ambientTrack : 'nessuna';
+  // Ultima traccia vera scelta: "m" riaccende quella dopo averla spenta (di
+  // partenza la traccia propria del set, se ne ha una).
+  let lastRealTrack = ambientTrackKey !== 'nessuna' ? ambientTrackKey : (setOwnAmbientTrack(session.pieceSet) || 'newage');
   trackSelect.value = ambientTrackKey;
 
   function percent(value) {

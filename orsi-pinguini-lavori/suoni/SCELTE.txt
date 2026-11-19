@@ -1,0 +1,13 @@
+scelti: mossa_orsi_1 mossa_pinguini_1
+cattura_pinguini_1
+cattura_orsi_2
+arrocco_2
+promozione_2
+tocco_2
+sigla_orsi_2v
+sigla_pinguini_2v
+vittoria_orsi_2
+vittoria_pinguini_1
+sconfitta_orsi_1
+sconfitta_pinguini_1
+patta_2

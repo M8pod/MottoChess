@@ -71,6 +71,7 @@ export default {
   'Classico': 'Classique',
   'Judo (judogi bianco e blu)': 'Judo (judogi blanc et bleu)',
   'Cani vs Gatti': 'Chiens contre Chats',
+  'Orsi polari vs Pinguini': 'Ours polaires contre Manchots',
   'Samurai vs Ninja (in arrivo)': 'Samouraïs contre Ninjas (bientôt)',
   '(disegni in arrivo: per ora pezzi classici)': '(dessins à venir : pièces classiques pour le moment)',
   "I colori e l'intensità delle caselle della scacchiera classica si scelgono in Impostazioni, e restano salvati su questo dispositivo.":
@@ -86,6 +87,7 @@ export default {
   'Nessuna': 'Aucune',
   'New age (rilassante)': 'New age (relaxant)',
   'Orientale': 'Oriental',
+  'Polo Nord (Natale)': 'Pôle Nord (Noël)',
   'Spiaggia': 'Plage',
 
   // --- Impostazioni ---
@@ -106,8 +108,8 @@ export default {
   'Volume suoni UI/menu': 'Volume des sons du menu',
   'Volume musica di sottofondo': 'Volume de la musique de fond',
   'Grafica scacchiera classica': "Apparence de l'échiquier classique",
-  "Le caselle chiare si scelgono fra colori chiari, le scure fra colori scuri. Per ognuna puoi regolare l'intensità. Le scelte vengono salvate su questo dispositivo e restano per le partite successive. I set Judo e Cani vs Gatti usano colori propri.":
-    "Les cases claires se choisissent parmi des couleurs claires, les cases foncées parmi des couleurs foncées. Vous pouvez régler l'intensité de chacune. Vos choix sont enregistrés sur cet appareil et conservés pour les parties suivantes. Les jeux Judo et Chiens contre Chats ont leurs propres couleurs.",
+  "Le caselle chiare si scelgono fra colori chiari, le scure fra colori scuri. Per ognuna puoi regolare l'intensità. Le scelte vengono salvate su questo dispositivo e restano per le partite successive. I set Judo, Cani vs Gatti e Orsi polari vs Pinguini usano colori propri.":
+    "Les cases claires se choisissent parmi des couleurs claires, les cases foncées parmi des couleurs foncées. Vous pouvez régler l'intensité de chacune. Vos choix sont enregistrés sur cet appareil et conservés pour les parties suivantes. Les jeux Judo, Chiens contre Chats et Ours polaires contre Manchots ont leurs propres couleurs.",
   'normale': 'normale',
   'più tenue, {n} per cento': 'plus douce, {n} pour cent',
   'più intensa, {n} per cento': 'plus intense, {n} pour cent',
