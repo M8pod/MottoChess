@@ -92,6 +92,41 @@ export function renderSettingsScreen(container, ctx, payload) {
   });
   accessFs.appendChild(narrationDiv);
 
+  // Ritmo di suoni e voce (21/11/2026): prima il suono della mossa, una
+  // pausa, poi la voce; la mossa dell'avversario aspetta che la voce finisca.
+  const paceDiv = document.createElement('fieldset');
+  paceDiv.className = 'field nested-fieldset';
+  const paceLegend = document.createElement('legend');
+  paceLegend.textContent = t('Ritmo di suoni e voce');
+  paceDiv.appendChild(paceLegend);
+  const paceHint = document.createElement('p');
+  paceHint.id = 'pace-hint';
+  paceHint.className = 'field-hint';
+  paceHint.textContent = t(
+    "A ogni mossa si sente prima il suono, poi dopo una breve pausa la voce; la mossa dell'avversario arriva quando la voce ha finito. Se la voce di VoiceOver è veloce scegli Veloce, se è lenta scegli Lento."
+  );
+  [
+    ['veloce', 'Veloce'],
+    ['normale', 'Normale'],
+    ['lento', 'Lento (più tempo per godersi i suoni)'],
+  ].forEach(([value, text]) => {
+    const label = document.createElement('label');
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'narrationPace';
+    radio.value = value;
+    radio.checked = (settings.narrationPace || 'normale') === value;
+    radio.setAttribute('aria-describedby', paceHint.id);
+    radio.addEventListener('change', () => {
+      settings.narrationPace = value;
+      persist();
+    });
+    label.append(radio, ` ${t(text)}`);
+    paceDiv.appendChild(label);
+  });
+  paceDiv.appendChild(paceHint);
+  accessFs.appendChild(paceDiv);
+
   // Narrazione aggiuntiva (richiesta di Roberto, 13/11/2026): ogni giocatore
   // sceglie quanto vuole sentire. Ogni casella ha una spiegazione collegata
   // (aria-describedby), letta dallo screen reader insieme all'etichetta.

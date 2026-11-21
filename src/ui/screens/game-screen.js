@@ -15,7 +15,7 @@ import {
   colorName,
 } from '../../themes/i18n-voice.js';
 import { t, getLanguage } from '../../i18n/i18n.js';
-import { AMBIENT_TRACKS, ambientTrackAllowed, setOwnAmbientTrack } from '../../session/settings.js';
+import { AMBIENT_TRACKS, ambientTrackAllowed, setOwnAmbientTrack, paceFor } from '../../session/settings.js';
 import { loadLastConfig, saveLastConfig } from '../../session/options.js';
 import { factionsByColor, playerFaction } from '../../themes/factions.js';
 import { pieceSetLabel } from '../../themes/pieces.js';
@@ -569,8 +569,12 @@ export function renderGameScreen(container, ctx, payload) {
       text = t('Hai abbandonato la partita. Hai perso.');
     }
 
-    sound.playGame(soundKey, soundCtxFor(session.color));
-    narrator.announce(text);
+    // Prima finisce di leggere la mossa che ha chiuso la partita, poi il
+    // suono dell'esito, la pausa e la voce.
+    const outcomeSound = soundKey;
+    audioSequence = waitUntilQuiet().then(() =>
+      soundsThenVoice([() => sound.playGame(outcomeSound, soundCtxFor(session.color), 6000)], [text])
+    );
     autoSaveGame(outcome);
 
     postGamePanel.hidden = false;
@@ -723,6 +727,38 @@ export function renderGameScreen(container, ctx, payload) {
     narrator.announce(name ? t('Apertura: {name}.', { name }) : t('Nessuna apertura riconosciuta finora.'));
   }
 
+  // --- Ritmo di suoni e voce (richiesta di Roberto, 21/11/2026) ---
+  // Per ogni mossa: prima il suono (del set), poi una breve pausa, poi la
+  // voce. Il suono della mossa dell'avversario parte solo quando la voce ha
+  // finito (stima del narratore) più la stessa pausa, così ogni suono del
+  // set si sente per intero e non si sovrappone alla lettura.
+  const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  // Ultima sequenza suono -> voce ancora in corso (sigla iniziale compresa).
+  let audioSequence = Promise.resolve();
+
+  async function waitUntilQuiet() {
+    await audioSequence;
+    const remaining = narrator.remainingSpeechMs();
+    if (remaining > 0) await delay(remaining + paceFor(settings).pauseMs);
+  }
+
+  // Suona i suoni in fila, aspetta la pausa e poi legge i testi.
+  function soundsThenVoice(soundCalls, texts) {
+    const pace = paceFor(settings);
+    narrator.msPerChar = pace.msPerChar;
+    const run = (async () => {
+      for (const play of soundCalls) {
+        await play();
+        if (destroyed) return;
+      }
+      if (soundCalls.length) await delay(pace.pauseMs);
+      if (destroyed) return;
+      texts.filter(Boolean).forEach((text) => narrator.announce(text));
+    })();
+    audioSequence = run.catch(() => {});
+    return run;
+  }
+
   async function afterMoveApplied(moveObj) {
     // Qualunque sia la strada della mossa (tocco, testo, motore), una
     // selezione fatta prima sulla scacchiera non vale più: prima restava
@@ -731,29 +767,25 @@ export function renderGameScreen(container, ctx, payload) {
     legalTargetsForSelected = new Map();
 
     const soundCtx = soundCtxFor(moveObj.color, moveObj.piece);
-    if (moveObj.isKingsideCastle() || moveObj.isQueensideCastle()) {
-      sound.playGame('castle', soundCtx);
-    } else if (moveObj.captured) {
-      sound.playGame('capture', soundCtx);
-    } else {
-      sound.playGame('move', soundCtx);
-    }
-
     const status = gameCore.status();
-    narrator.announce(moveText(moveObj, { isCheck: status.isCheck, isCheckmate: status.isCheckmate, announceMate: false }));
+    if (clock) clock.addIncrement(moveObj.color);
+    // La scacchiera si aggiorna subito; suoni e voce seguono il loro ritmo.
+    const rendered = renderBoardAndControls();
+
+    let mainSound = 'move';
+    if (moveObj.isKingsideCastle() || moveObj.isQueensideCastle()) mainSound = 'castle';
+    else if (moveObj.captured) mainSound = 'capture';
+    const soundCalls = [() => sound.playGame(mainSound, soundCtx)];
+    if (status.isCheck && !status.isCheckmate) soundCalls.push(() => sound.playGame('check', soundCtx));
+    if (moveObj.isPromotion()) soundCalls.push(() => sound.playGame('promotion', soundCtx));
+    await soundsThenVoice(soundCalls, [
+      moveText(moveObj, { isCheck: status.isCheck, isCheckmate: status.isCheckmate, announceMate: false }),
+      moveObj.isPromotion() ? promotionConfirmationText(moveObj.promotion) : null,
+    ]);
+    if (destroyed) return;
     announceOpeningIfNew();
 
-    if (status.isCheck && !status.isCheckmate) {
-      sound.playGame('check', soundCtx);
-    }
-    if (moveObj.isPromotion()) {
-      sound.playGame('promotion', soundCtx);
-      narrator.announce(promotionConfirmationText(moveObj.promotion));
-    }
-
-    if (clock) clock.addIncrement(moveObj.color);
-
-    await renderBoardAndControls();
+    await rendered;
 
     if (checkGameOverAfterMove(moveObj.color)) return;
 
@@ -800,6 +832,10 @@ export function renderGameScreen(container, ctx, payload) {
       : {};
     const uci = await engine.bestMove(goOpts);
     if (gameOver || destroyed || !uci) return;
+    // Il suono della risposta parte solo dopo che la voce ha letto la mossa
+    // precedente (o la frase d'inizio partita).
+    await waitUntilQuiet();
+    if (gameOver || destroyed) return;
     const moveObj = gameCore.applyUci(uci);
     await afterMoveApplied(moveObj);
   }
@@ -1102,22 +1138,21 @@ export function renderGameScreen(container, ctx, payload) {
 
   async function start() {
     sound.preloadGameSounds(session.pieceSet);
-    sound.playGame('session_start', soundCtxFor(session.color));
+    const startSound = () => sound.playGame('session_start', soundCtxFor(session.color), 8000);
     ambient.play(ambientTrackKey, settings.volumeAmbient);
     engine = new Engine();
     engineReady = engine.init().then(() => {
       engine.setLevel(session.level);
     });
 
-    if (resumeState) {
-      narrator.announce(resumeAnnouncement());
-    } else {
-      narrator.announce(
-        session.color === 'w'
+    // Prima la sigla del set, poi la frase d'inizio.
+    soundsThenVoice([startSound], [
+      resumeState
+        ? resumeAnnouncement()
+        : session.color === 'w'
           ? t('Nuova partita. Giochi con il bianco, muovi tu.')
-          : t("Nuova partita. Giochi con il nero, attendi la mossa dell'avversario.")
-      );
-    }
+          : t("Nuova partita. Giochi con il nero, attendi la mossa dell'avversario."),
+    ]);
 
     await renderBoardAndControls();
     await engineReady;

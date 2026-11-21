@@ -75,6 +75,20 @@ export const AMBIENT_TRACKS = {
   polonord: { label: 'Polo Nord (Natale)', file: 'polonord_loop_v1.mp3', sets: ['orsi-pinguini'] },
 };
 
+// pauseMs: pausa fra la fine del suono e la voce, e fra la fine (stimata)
+// della voce e il suono della mossa successiva. msPerChar: stima del tempo
+// di lettura dello screen reader per carattere (VoiceOver a velocità media
+// legge circa 15 caratteri al secondo).
+export const PACES = {
+  veloce: { pauseMs: 150, msPerChar: 40 },
+  normale: { pauseMs: 300, msPerChar: 60 },
+  lento: { pauseMs: 550, msPerChar: 80 },
+};
+
+export function paceFor(settings) {
+  return PACES[settings.narrationPace] || PACES.normale;
+}
+
 // Una traccia con "sets" si può usare solo con quei set pezzi.
 export function ambientTrackAllowed(key, pieceSet) {
   const track = AMBIENT_TRACKS[key];
@@ -94,6 +108,10 @@ export const DEFAULT_SETTINGS = {
   // casella di partenza in ogni mossa ("cavallo da Genova 1 a Firenze 3"),
   // nome delle aperture, commento di Stockfish a fine partita.
   announceFromSquare: false,
+  // Ritmo di suoni e voce (21/11/2026): prima il suono della mossa, una
+  // breve pausa, poi la voce; il suono della mossa dell'avversario aspetta
+  // che la voce abbia finito. 'veloce' | 'normale' | 'lento', vedi PACES.
+  narrationPace: 'normale',
   announceOpenings: true,
   postGameAnalysis: true,
   timeWarning10Enabled: true,

@@ -223,11 +223,15 @@ export class SoundManager {
   // ctx: { pieceSet, piece, faction } — piece è il tipo (p/n/b/r/q/k) del
   // pezzo che compie l'azione (chi mangia, chi dà scacco), non quello subito;
   // faction è la fazione di chi agisce nei set a fazioni.
-  playGame(name, ctx = {}) {
+  //
+  // Ritorna una Promise che si risolve quando il suono è finito (al massimo
+  // dopo maxWaitMs): serve a far parlare la voce DOPO il suono, così il
+  // suono del set si sente per intero (richiesta di Roberto, 21/11/2026).
+  playGame(name, ctx = {}, maxWaitMs = 2500) {
     const settings = this.getSettings();
     const src = resolveGameSoundPath(name, ctx, settings.themeSoundsEnabled);
-    if (!src) return;
-    this._play(src, settings.volumeGame);
+    if (!src) return Promise.resolve();
+    return this._play(src, settings.volumeGame, maxWaitMs);
   }
 
   playUi(name) {
@@ -251,9 +255,30 @@ export class SoundManager {
     return promise;
   }
 
-  _play(src, volume) {
+  // Ritorna una Promise risolta a fine suono (mai dopo maxWaitMs, e subito
+  // se il suono non può partire): chi aspetta non resta mai bloccato.
+  _play(src, volume, maxWaitMs = 2500) {
     const gainValue = Math.max(0, Math.min(1, Number(volume) || 0));
-    if (gainValue === 0) return;
+    if (gainValue === 0) return Promise.resolve();
+    const waitFor = (seconds) =>
+      new Promise((resolve) => setTimeout(resolve, Math.min(maxWaitMs, Math.max(0, seconds * 1000))));
+    // Con <audio> la durata può non essere ancora nota: si aspetta la fine
+    // vera del suono (evento ended), sempre entro maxWaitMs.
+    const waitForElement = (el) =>
+      new Promise((resolve) => {
+        if (!el) {
+          resolve();
+          return;
+        }
+        let timer = null;
+        const done = () => {
+          clearTimeout(timer);
+          ['ended', 'error', 'pause'].forEach((type) => el.removeEventListener(type, done));
+          resolve();
+        };
+        ['ended', 'error', 'pause'].forEach((type) => el.addEventListener(type, done));
+        timer = setTimeout(done, maxWaitMs);
+      });
 
     const ctx = getAudioContext();
     if (!ctx || !isAudioContextRunning()) {
@@ -261,15 +286,11 @@ export class SoundManager {
       // Web Audio assente: si prova a sbloccarlo per i prossimi suoni e
       // intanto si usa <audio>, così questo suono non va perso.
       resumeAudioContext();
-      this._playWithElement(src, gainValue);
-      return;
+      return waitForElement(this._playWithElement(src, gainValue));
     }
 
-    this._loadBuffer(src).then((buffer) => {
-      if (!buffer) {
-        this._playWithElement(src, gainValue);
-        return;
-      }
+    return this._loadBuffer(src).then((buffer) => {
+      if (!buffer) return waitForElement(this._playWithElement(src, gainValue));
       try {
         const source = ctx.createBufferSource();
         source.buffer = buffer;
@@ -277,12 +298,14 @@ export class SoundManager {
         gain.gain.value = gainValue;
         source.connect(gain).connect(ctx.destination);
         source.start();
+        return waitFor(buffer.duration);
       } catch {
-        this._playWithElement(src, gainValue);
+        return waitForElement(this._playWithElement(src, gainValue));
       }
     });
   }
 
+  // Ritorna l'elemento <audio> che suona (null se non può suonare).
   _playWithElement(src, volume) {
     try {
       let el = this.elements.get(src);
@@ -297,9 +320,11 @@ export class SoundManager {
       } catch {
         // file non ancora caricato: parte comunque dall'inizio
       }
-      el.play().catch(() => {});
+      el.play().catch(() => el.dispatchEvent(new Event('error')));
+      return el;
     } catch {
       // riproduzione audio non disponibile: non blocca l'interazione
+      return null;
     }
   }
 }
