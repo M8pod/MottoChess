@@ -246,6 +246,8 @@ export default {
   "cosa c'è nella casella e quali pezzi la attaccano o la difendono. A voce: \"casella Empoli 4\" oppure \"cosa c'è in Empoli 4\"": "what is on the square and which pieces attack or defend it. By voice: \"square Echo 4\" or \"what is on Echo 4\"",
   "x (oppure: materiale)": "x (or: material)",
   "i pezzi mangiati da te e dall'avversario, e chi è in vantaggio (pedone 1, cavallo e alfiere 3, torre 5, dama 9)": "the pieces captured by you and by your opponent, and who is ahead (pawn 1, knight and bishop 3, rook 5, queen 9)",
+  "A voce (dettatura, senza tastiera)": "Spoken (dictation, no keyboard)",
+  "traversa 3 (= s3), colonna Empoli o colonna e (= se), ultima mossa (= l), ultime 5 mosse (= l5), tempo (= c), dove sono le torri bianche (= p r b), attenzione (= a), materiale (= x), cosa c'è in Empoli 4 (= i e4), voce (= v), musica, musica più, musica meno (= m, m+, m-), comandi (= aiuto)": "rank 3 (= s3), column e or file e (= se), last move (= l), last 5 moves (= l5), time (= c), where are the white rooks (= p r w), attention (= a), material (= x), what's on e4 (= i e4), voice (= v), music, music up, music down (= m, m+, m-), commands (= help)",
   "apertura": "opening",
   "ripete il nome dell'apertura giocata": "repeats the name of the opening being played",
   "Apertura: {name}.": "Opening: {name}.",

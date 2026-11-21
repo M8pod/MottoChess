@@ -11,7 +11,11 @@ const STORAGE_KEY = 'mottochess.settings.v1';
 //     ancora troppo narrazione e suoni di gioco/set), suoni di gioco portati
 //     da 1 a 0.9 per restare in equilibrio con la narrazione dello screen
 //     reader (non regolabile da questa app: è il canale audio dell'utente).
-const SETTINGS_VERSION = 3;
+//  4: (21/11/2026) musica a 0.6. Lo 0.15 era stato tarato quando il cursore
+//     era lineare (-16 dB); con la curva percettiva dell'11/11 era diventato
+//     -34 dB, cioè quasi muto: i pulsanti Ascolta sembravano non funzionare.
+//     0.6 sulla curva percettiva vale di nuovo circa -16 dB.
+const SETTINGS_VERSION = 4;
 
 // Palette caselle (riviste l'11/11/2026 su consiglio dei tester ipovedenti):
 // le caselle chiare hanno SOLO colori chiari e le scure SOLO colori scuri,
@@ -63,7 +67,7 @@ export const AMBIENT_TRACKS = {
   nessuna: { label: 'Nessuna', file: null },
   newage: { label: 'New age (rilassante)', file: 'newage_loop_v1.mp3' },
   giappone: { label: 'Orientale', file: 'giappone_loop_v1.mp3' },
-  spiaggia: { label: 'Spiaggia', file: 'spiaggia_loop_v1.mp3' },
+  spiaggia: { label: 'Spiaggia', file: 'spiaggia_loop_v2.mp3' },
   // Ambiente a strati (vento artico, tintinnii, renne che passano, oh oh oh
   // lontano), 19/11/2026: solo con i set che lo elencano in "sets"
   // (Orsi polari vs Pinguini e futuri set natalizi). Sorgenti in
@@ -99,7 +103,7 @@ export const DEFAULT_SETTINGS = {
   volumeUi: 0.8,
   // La musica resta volutamente sotto ai suoni di gioco: è un sottofondo, non
   // deve competere con la narrazione dello screen reader.
-  volumeAmbient: 0.15,
+  volumeAmbient: 0.6,
   settingsVersion: SETTINGS_VERSION,
   lightSquareColorName: 'verde salvia',
   darkSquareColorName: 'viola',

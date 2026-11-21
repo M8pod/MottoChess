@@ -105,6 +105,7 @@ const HELP_COMMANDS = [
   ['Promozione', 'e8 promuove a dama; e8=D, e8=T, e8=A, e8=C (oppure e8=Q, e8n) per scegliere il pezzo; a parole: Empoli 8 cavallo'],
   ['Notazione "città italiane"', 'es. Empoli 4, cavallo Firenze 3, alfiere mangia Como 5. Il numero si può scrivere anche in lettere: Empoli quattro'],
   ['Arrocco', 'corto: oo, 00 oppure O-O; lungo: ooo, 000 oppure O-O-O. Anche a parole: "arrocco corto" / "arrocco lungo"'],
+  ['A voce (dettatura, senza tastiera)', 'traversa 3 (= s3), colonna Empoli o colonna e (= se), ultima mossa (= l), ultime 5 mosse (= l5), tempo (= c), dove sono le torri bianche (= p r b), attenzione (= a), materiale (= x), cosa c\'è in Empoli 4 (= i e4), voce (= v), musica, musica più, musica meno (= m, m+, m-), comandi (= aiuto)'],
   ['l', "annuncia l'ultima mossa giocata"],
   ['l + numero (es. l5)', 'annuncia le ultime N mosse giocate'],
   ['c', "annuncia il tempo residuo, tuo e dell'avversario"],

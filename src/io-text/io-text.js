@@ -334,6 +334,119 @@ const SQUARE_INFO_PREFIXES = [
   'qu y a t il en', 'qu y a t il sur', 'case',
 ];
 
+// Comandi a voce (21/11/2026, richiesta di Roberto): giocando dall'iPhone
+// senza tastiera si detta, e le scorciatoie di una lettera (s3, l, c, p b...)
+// la dettatura le scrive male ("S 3", "esse tre", "elle"...). Ogni comando
+// breve ha quindi anche una forma a parole nelle quattro lingue:
+//  - "traversa 3" / "riga tre"            = s3
+//  - "colonna e" / "colonna Empoli"       = se
+//  - "ultima mossa" / "ultime 5 mosse"    = l / l5
+//  - "tempo" / "orologio"                 = c
+//  - "voce" / "narrazione"                = v
+//  - "musica", "musica più", "musica meno" = m, m+, m-
+//  - "dove sono le torri bianche", "pezzi cavalli", "alfieri neri" = p ...
+//  - "comandi"                            = aiuto
+// Tutto è confrontato sul testo già normalizzato (minuscole, senza accenti
+// né punteggiatura).
+const SPOKEN_HELP = new Set(['comandi', 'elenco comandi', 'commands', 'comandos', 'commandes']);
+const SPOKEN_CLOCK = new Set([
+  'tempo', 'orologio', 'quanto tempo', 'tempo residuo', 'tempo rimasto',
+  'time', 'clock', 'time left', 'tiempo', 'reloj', 'temps', 'pendule',
+]);
+const SPOKEN_VOICE = new Set(['voce', 'narrazione', 'cambia voce', 'cambia narrazione', 'voice', 'voz', 'voix']);
+const SPOKEN_MUSIC_TOGGLE = new Set(['musica', 'music', 'musique']);
+const SPOKEN_MUSIC_UP = new Set([
+  'musica piu', 'piu musica', 'alza musica', 'alza la musica', 'musica piu forte',
+  'music up', 'louder music', 'musica mas', 'sube musica', 'sube la musica',
+  'musique plus', 'plus de musique',
+]);
+const SPOKEN_MUSIC_DOWN = new Set([
+  'musica meno', 'meno musica', 'abbassa musica', 'abbassa la musica', 'musica piu piano',
+  'music down', 'quieter music', 'musica menos', 'baja musica', 'baja la musica',
+  'musique moins', 'moins de musique',
+]);
+const SPOKEN_LAST_MOVE = new Set([
+  'ultima mossa', 'ultima', 'mossa precedente', 'last move', 'last',
+  'ultima jugada', 'ultimo movimiento', 'dernier coup',
+]);
+// "ultime 5 mosse", "last 5 moves", "ultimas 5 jugadas", "derniers 5 coups"
+const SPOKEN_LAST_MOVES_RE = /^(?:ultime|last|ultimas|derniers|dernieres) (\S+)(?: (?:mosse|moves|jugadas|movimientos|coups))?$/;
+const SPOKEN_COUNT = { nove: '9', dieci: '10', nine: '9', ten: '10', nueve: '9', diez: '10', neuf: '9', dix: '10' };
+const SPOKEN_RANK_PREFIXES = ['traversa', 'riga', 'rank', 'row', 'fila', 'rangee', 'ligne', 's', 'esse', 'es'];
+const SPOKEN_FILE_PREFIXES = ['colonna', 'column', 'file', 'columna', 'colonne', 's', 'esse', 'es'];
+// Lettere delle colonne come le scrive la dettatura quando le si pronuncia.
+const SPOKEN_LETTERS = {
+  a: 'a', b: 'b', c: 'c', d: 'd', e: 'e', f: 'f', g: 'g', h: 'h',
+  bi: 'b', ci: 'c', di: 'd', effe: 'f', gi: 'g', acca: 'h',
+  bee: 'b', be: 'b', see: 'c', sea: 'c', ce: 'c', dee: 'd', de: 'd', ef: 'f', eff: 'f', efe: 'f',
+  gee: 'g', ge: 'g', aitch: 'h', hache: 'h', ache: 'h',
+};
+const SPOKEN_PIECES_PREFIXES = ['dove sono', 'dov e', 'dove', 'pezzi', 'where are', 'where is', 'donde estan', 'donde esta', 'ou sont', 'ou est'];
+const SPOKEN_ARTICLES = new Set(['il', 'lo', 'la', 'i', 'gli', 'le', 'the', 'el', 'los', 'las', 'les', 'my', 'miei', 'mie', 'tuoi', 'tue', 'mis', 'mes']);
+// Senza prefisso valgono solo i plurali ("torri", "alfieri neri"): un nome
+// singolare da solo potrebbe essere l'inizio di una mossa dettata a metà.
+const SINGULAR_PIECE_WORDS = new Set([
+  're', 'dama', 'dame', 'donna', 'regina', 'torre', 'alfiere', 'cavallo', 'caballo', 'pedone',
+  'king', 'queen', 'rook', 'bishop', 'knight', 'pawn', 'rey', 'reina', 'alfil', 'peon',
+  'roi', 'tour', 'fou', 'cavalier', 'pion',
+]);
+
+function stripPrefix(norm, prefixes) {
+  for (const prefix of prefixes) {
+    if (norm.startsWith(`${prefix} `)) return norm.slice(prefix.length + 1);
+  }
+  return null;
+}
+
+function parseSpokenCommand(norm) {
+  if (SPOKEN_HELP.has(norm)) return { type: 'help' };
+  if (SPOKEN_CLOCK.has(norm)) return { type: 'clock' };
+  if (SPOKEN_VOICE.has(norm)) return { type: 'narrationStyle' };
+  if (SPOKEN_MUSIC_TOGGLE.has(norm)) return { type: 'musicToggle' };
+  if (SPOKEN_MUSIC_UP.has(norm)) return { type: 'musicVolume', delta: 0.1 };
+  if (SPOKEN_MUSIC_DOWN.has(norm)) return { type: 'musicVolume', delta: -0.1 };
+  if (SPOKEN_LAST_MOVE.has(norm)) return { type: 'lastMove' };
+
+  const lm = SPOKEN_LAST_MOVES_RE.exec(norm);
+  if (lm) {
+    const word = lm[1];
+    const n = /^\d+$/.test(word) ? word : (RANK_BY_WORD[word] || SPOKEN_COUNT[word]);
+    if (n) return { type: 'lastMoves', count: Number(n) };
+  }
+
+  // Traversa: "traversa 3", "riga tre", "s 3", "esse 3".
+  let rest = stripPrefix(norm, SPOKEN_RANK_PREFIXES);
+  if (rest !== null) {
+    const rank = normalizeWord(rest);
+    if (/^[1-8]$/.test(rank)) return { type: 'rank', rank };
+  }
+
+  // Colonna: "colonna e", "colonna Empoli", "colonna di Empoli", "s e".
+  rest = stripPrefix(norm, SPOKEN_FILE_PREFIXES);
+  if (rest !== null) {
+    let words = rest.split(' ');
+    if (words.length === 2 && ['di', 'della', 'de', 'del', 'of', 'du'].includes(words[0])) words = [words[1]];
+    if (words.length === 1) {
+      const file = FILE_BY_CITY_LOWER[words[0]] || SPOKEN_LETTERS[words[0]];
+      if (file) return { type: 'file', file };
+    }
+  }
+
+  // Pezzi: "dove sono le torri bianche", "pezzi cavalli", "alfieri neri".
+  const afterPrefix = stripPrefix(norm, SPOKEN_PIECES_PREFIXES);
+  const words = (afterPrefix ?? norm).split(' ').filter((w) => !SPOKEN_ARTICLES.has(w));
+  // In inglese il colore viene prima: "white rooks".
+  if (words.length === 2 && COLOR_WORDS[words[0]] && PIECE_WORDS[words[1]]) words.reverse();
+  if (words.length >= 1 && words.length <= 2) {
+    const piece = PIECE_WORDS[words[0]];
+    const color = words[1] ? COLOR_WORDS[words[1]] : null;
+    const colorOk = !words[1] || Boolean(color);
+    const bareOk = afterPrefix !== null || color || !SINGULAR_PIECE_WORDS.has(words[0]);
+    if (piece && colorOk && bareOk) return { type: 'pieces', piece, color };
+  }
+  return null;
+}
+
 function normalizeCommand(text) {
   return stripAccents(text.toLowerCase())
     .replace(/['’-]/g, ' ')
@@ -378,7 +491,9 @@ function parseSquareInfo(norm) {
 //  { type: 'musicToggle' } | { type: 'musicVolume', delta }
 //  null se il testo non è un comando riconosciuto
 export function parseCommandText(rawText) {
-  const t = (rawText || '').trim();
+  // La dettatura aggiunge spesso un punto finale ("S3.", "Tempo."): senza
+  // toglierlo le scorciatoie non venivano riconosciute.
+  const t = (rawText || '').trim().replace(/[.,;:!?¿¡]+$/, '').trim();
   if (!t) return null;
 
   if (CMD_HELP_RE.test(t)) return { type: 'help' };
@@ -402,6 +517,8 @@ export function parseCommandText(rawText) {
   if (CMD_OPENING_WORDS.has(norm)) return { type: 'opening' };
   const infoSquare = parseSquareInfo(norm);
   if (infoSquare) return { type: 'squareInfo', square: infoSquare };
+  const spoken = parseSpokenCommand(norm);
+  if (spoken) return spoken;
 
   m = CMD_MUSIC_RE.exec(t);
   if (m) {

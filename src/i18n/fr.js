@@ -247,6 +247,8 @@ export default {
   "cosa c'è nella casella e quali pezzi la attaccano o la difendono. A voce: \"casella Empoli 4\" oppure \"cosa c'è in Empoli 4\"": "ce qu'il y a sur la case et quelles pièces l'attaquent ou la défendent. À la voix : « case Eva 4 » ou « qu'y a-t-il en Eva 4 »",
   "x (oppure: materiale)": "x (ou : matériel)",
   "i pezzi mangiati da te e dall'avversario, e chi è in vantaggio (pedone 1, cavallo e alfiere 3, torre 5, dama 9)": "les pièces prises par vous et par votre adversaire, et qui a l'avantage (pion 1, cavalier et fou 3, tour 5, dame 9)",
+  "A voce (dettatura, senza tastiera)": "À la voix (dictée, sans clavier)",
+  "traversa 3 (= s3), colonna Empoli o colonna e (= se), ultima mossa (= l), ultime 5 mosse (= l5), tempo (= c), dove sono le torri bianche (= p r b), attenzione (= a), materiale (= x), cosa c'è in Empoli 4 (= i e4), voce (= v), musica, musica più, musica meno (= m, m+, m-), comandi (= aiuto)": "rangée 3 (= s3), colonne e (= se), dernier coup (= l), derniers 5 coups (= l5), temps (= c), où sont les tours blanches (= p t b), attention (= a), matériel (= x), qu'y a-t-il en e4 (= i e4), voix (= v), musique, musique plus, musique moins (= m, m+, m-), commandes (= aide)",
   "apertura": "ouverture",
   "ripete il nome dell'apertura giocata": "répète le nom de l'ouverture jouée",
   "Apertura: {name}.": "Ouverture : {name}.",
